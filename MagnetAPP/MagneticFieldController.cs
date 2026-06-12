@@ -9,6 +9,8 @@ namespace MotorControl
 {
     public sealed class MagneticFieldController : IDisposable
     {
+        private static readonly TimeSpan MotorSettleDelay = TimeSpan.FromSeconds(10);
+
         private readonly MainForm _mainForm;
         private readonly MotorController? _motorController;
         private readonly ArduinoCommunication? _arduinoCom;
@@ -306,6 +308,8 @@ namespace MotorControl
                     ? UnoMotorDirection.Forward
                     : UnoMotorDirection.Reverse;
                 await unoDevice.MoveMotorAsync(motor, direction, steps);
+                _angleLog.AppendLineSafe($"{axisName}轴转动完成，等待 {MotorSettleDelay.TotalSeconds:F0}s");
+                await Task.Delay(MotorSettleDelay);
             }
 
             double normalizedTarget = NormalizeAngle(targetAngle);
@@ -411,6 +415,54 @@ namespace MotorControl
         public double GetMagneticFieldStrength()
         {
             return Math.Sqrt(MagneticX * MagneticX + MagneticY * MagneticY + MagneticZ * MagneticZ);
+        }
+
+        public bool ConfirmTargetFieldIfNeeded(double targetX, double targetY, double targetZ)
+        {
+            const double maxDirectionErrorDegrees = 20.0;
+
+            double currentNorm = GetMagneticFieldStrength();
+            double targetNorm = Math.Sqrt(targetX * targetX + targetY * targetY + targetZ * targetZ);
+            if (targetNorm <= 1e-9)
+            {
+                return true;
+            }
+
+            if (currentNorm <= 1e-6)
+            {
+                return ConfirmContinue(
+                    "当前没有有效磁场传感器读数，无法确认磁铁姿态是否到位。\n是否继续执行曝光？");
+            }
+
+            double dot = (MagneticX * targetX + MagneticY * targetY + MagneticZ * targetZ) / (currentNorm * targetNorm);
+            dot = Math.Min(1.0, Math.Max(-1.0, dot));
+            double angleError = Math.Acos(dot) * 180.0 / Math.PI;
+            if (angleError <= maxDirectionErrorDegrees)
+            {
+                return true;
+            }
+
+            return ConfirmContinue(
+                $"当前磁场方向与目标方向偏差约 {angleError:F1}°，超过 {maxDirectionErrorDegrees:F0}°。\n" +
+                $"目标: [{targetX:F2}, {targetY:F2}, {targetZ:F2}]\n" +
+                $"当前: [{MagneticX:F2}, {MagneticY:F2}, {MagneticZ:F2}]\n" +
+                "是否继续执行曝光？");
+        }
+
+        private bool ConfirmContinue(string message)
+        {
+            DialogResult result = DialogResult.No;
+            _mainForm.RunOnUiThread(() =>
+            {
+                result = MessageBox.Show(
+                    _mainForm,
+                    message,
+                    "磁场姿态确认",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Warning,
+                    MessageBoxDefaultButton.Button2);
+            });
+            return result == DialogResult.Yes;
         }
 
         public void ClearMagneticFieldDisplay()

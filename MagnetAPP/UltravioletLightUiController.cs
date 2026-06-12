@@ -10,7 +10,7 @@ namespace MotorControl
     public sealed class UltravioletLightUiController : IDisposable
     {
         private const int SliderDebounceMilliseconds = 150;
-        private const int DefaultBrightnessPercent = 50;
+        private const int DefaultBrightnessPercent = 100;
 
         private readonly MainForm _mainForm;
         private readonly Func<bool, UnoDeviceClient?> _getUnoDevice;
@@ -59,7 +59,17 @@ namespace MotorControl
 
         private async void TurnOnButton_Click(object? sender, EventArgs e)
         {
-            await ExecuteLightActionAsync(
+            await TurnOnAsync(showConnectionErrors: true);
+        }
+
+        private async void TurnOffButton_Click(object? sender, EventArgs e)
+        {
+            await TurnOffAsync(showConnectionErrors: true);
+        }
+
+        public Task TurnOnAsync(bool showConnectionErrors)
+        {
+            return ExecuteLightActionAsync(
                 async light =>
                 {
                     await light.SetBrightnessPercentAsync(_brightnessBar.Value);
@@ -67,12 +77,12 @@ namespace MotorControl
                     UpdateStatusLabel(true);
                 },
                 "开灯",
-                showConnectionErrors: true);
+                showConnectionErrors);
         }
 
-        private async void TurnOffButton_Click(object? sender, EventArgs e)
+        public Task TurnOffAsync(bool showConnectionErrors)
         {
-            await ExecuteLightActionAsync(
+            return ExecuteLightActionAsync(
                 async light =>
                 {
                     await light.TurnOffAsync();
@@ -80,7 +90,7 @@ namespace MotorControl
                     UpdateStatusLabel(false);
                 },
                 "关灯",
-                showConnectionErrors: true);
+                showConnectionErrors);
         }
 
         private void BrightnessBar_ValueChanged(object? sender, EventArgs e)

@@ -388,10 +388,6 @@ namespace MotorControl
                     labelResult1, labelResult2, outputTextBox);
 
 
-                _gcodeController = new GCodeController(
-                    this, _klipperController, _magneticFieldController,
-                    textBox2, button4, richTextBox4, richTextBox5);
-
                 DisplayManager.Instance.Initialize(this);
 
                 _ultravioletLightUiController = new UltravioletLightUiController(
@@ -401,6 +397,10 @@ namespace MotorControl
                     button12,
                     button13,
                     label28);
+
+                _gcodeController = new GCodeController(
+                    this, _klipperController, _magneticFieldController, _ultravioletLightUiController,
+                    textBox2, button4, richTextBox4, richTextBox5, textBox13, button20);
             }
             catch (Exception ex)
             {
@@ -1205,7 +1205,7 @@ namespace MotorControl
             groupBox6.Size = new Size(579, 385);
             groupBox6.TabIndex = 22;
             groupBox6.TabStop = false;
-            groupBox6.Text = "打印测试";
+            groupBox6.Text = "GCODE执行";
             // 
             // textBox13
             // 
@@ -1213,6 +1213,7 @@ namespace MotorControl
             textBox13.Name = "textBox13";
             textBox13.Size = new Size(208, 27);
             textBox13.TabIndex = 7;
+            textBox13.Text = "60";
             // 
             // button20
             // 
@@ -1272,7 +1273,7 @@ namespace MotorControl
             button4.Name = "button4";
             button4.Size = new Size(94, 29);
             button4.TabIndex = 1;
-            button4.Text = "执行";
+            button4.Text = "开始执行";
             button4.UseVisualStyleBackColor = true;
             // 
             // textBox2

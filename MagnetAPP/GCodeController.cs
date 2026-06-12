@@ -10,32 +10,63 @@ namespace MotorControl
 {
     public sealed class GCodeController : IDisposable
     {
+        private const int DefaultExposureSeconds = 60;
+        private static readonly TimeSpan MechanicalSettleDelay = TimeSpan.FromSeconds(10);
+
         private readonly KlipperController _klipperController;
         private readonly MagneticFieldController? _magneticFieldController;
+        private readonly UltravioletLightUiController? _ultravioletLightController;
 
         private readonly TextBox _printGCodeTextBox;
+        private readonly TextBox _exposureSecondsTextBox;
         private readonly Button _executePrintButton;
+        private readonly Button _confirmExposureSecondsButton;
         private readonly RichTextBox _printGCodeLog;
         private readonly RichTextBox _pixelLog;
+        private int _exposureSeconds = DefaultExposureSeconds;
 
         public GCodeController(MainForm mainForm, KlipperController klipperController,
             MagneticFieldController? magneticFieldController,
-            TextBox textBox2, Button button4, RichTextBox richTextBox4, RichTextBox richTextBox5)
+            UltravioletLightUiController? ultravioletLightController,
+            TextBox textBox2, Button button4, RichTextBox richTextBox4, RichTextBox richTextBox5,
+            TextBox textBox13, Button button20)
         {
             _ = mainForm;
             _klipperController = klipperController;
             _magneticFieldController = magneticFieldController;
+            _ultravioletLightController = ultravioletLightController;
             _printGCodeTextBox = textBox2;
+            _exposureSecondsTextBox = textBox13;
             _executePrintButton = button4;
+            _confirmExposureSecondsButton = button20;
             _printGCodeLog = richTextBox4;
             _pixelLog = richTextBox5;
 
+            InitializeExposureControls();
             BindEvents();
+        }
+
+        private void InitializeExposureControls()
+        {
+            _exposureSecondsTextBox.Text = DefaultExposureSeconds.ToString(CultureInfo.InvariantCulture);
         }
 
         private void BindEvents()
         {
             _executePrintButton.Click += ExecutePrintButton_Click;
+            _confirmExposureSecondsButton.Click += ConfirmExposureSecondsButton_Click;
+        }
+
+        private void ConfirmExposureSecondsButton_Click(object? sender, EventArgs e)
+        {
+            if (!TryReadExposureSeconds(out int exposureSeconds, out string errorMessage))
+            {
+                MessageBox.Show(errorMessage, "曝光间隔", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            _exposureSeconds = exposureSeconds;
+            _pixelLog.AppendLineSafe($"曝光时间已更新: {_exposureSeconds}s");
         }
 
         private async Task ProcessMagneticVoxelGCodeFileAsync(
@@ -70,28 +101,59 @@ namespace MotorControl
                         continue;
                     }
 
-                    if (TryExtractFieldVector(line, out double mx, out double my, out double mz)
-                        && _magneticFieldController is not null)
-                    {
-                        await _magneticFieldController.SetAnglesForFieldVectorAsync(mx, my, mz);
-                    }
-
-                    UpdateWhiteSquareFromGCode(command, positionLog);
                     sentGCodeLog.AppendLineSafe(command);
-
                     if (!await _klipperController.SendCommandAsync(command))
                     {
                         throw new InvalidOperationException($"发送命令失败: {command}");
                     }
 
-                    await Task.Delay(100);
+                    positionLog.AppendLineSafe($"机架移动完成，等待 {MechanicalSettleDelay.TotalSeconds:F0}s");
+                    await Task.Delay(MechanicalSettleDelay);
+
+                    bool hasFieldTarget = TryExtractFieldVector(line, out double mx, out double my, out double mz);
+                    if (hasFieldTarget && _magneticFieldController is not null)
+                    {
+                        await _magneticFieldController.SetAnglesForFieldVectorAsync(mx, my, mz);
+
+                        if (!_magneticFieldController.ConfirmTargetFieldIfNeeded(mx, my, mz))
+                        {
+                            throw new OperationCanceledException("用户取消：磁场姿态未确认。");
+                        }
+                    }
+
+                    UpdateWhiteSquareFromGCode(command, positionLog);
+
+                    if (hasFieldTarget)
+                    {
+                        await ExposeCurrentVoxelAsync(positionLog);
+                    }
                 }
             }
             finally
             {
+                if (_ultravioletLightController is not null)
+                {
+                    await _ultravioletLightController.TurnOffAsync(showConnectionErrors: false);
+                }
+
                 DisplayManager.Instance.DisableAutoUpdate();
                 DisplayManager.Instance.ShowBlackScreen();
             }
+        }
+
+        private async Task ExposeCurrentVoxelAsync(RichTextBox log)
+        {
+            if (_ultravioletLightController is null)
+            {
+                throw new InvalidOperationException("紫外光源控制器未初始化。");
+            }
+
+            int seconds = _exposureSeconds;
+            log.AppendLineSafe($"开始曝光: {seconds}s");
+            await _ultravioletLightController.TurnOnAsync(showConnectionErrors: true);
+            await Task.Delay(TimeSpan.FromSeconds(seconds));
+            await _ultravioletLightController.TurnOffAsync(showConnectionErrors: true);
+            log.AppendLineSafe("曝光完成，已关灯");
         }
 
         private void UpdateWhiteSquareFromGCode(string gcode, RichTextBox positionLog)
@@ -145,6 +207,32 @@ namespace MotorControl
         {
             return double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out result)
                 || double.TryParse(value, out result);
+        }
+
+        private bool TryReadExposureSeconds(out int exposureSeconds, out string errorMessage)
+        {
+            exposureSeconds = 0;
+            errorMessage = string.Empty;
+
+            if (!int.TryParse(_exposureSecondsTextBox.Text.Trim(), out exposureSeconds))
+            {
+                errorMessage = "请输入有效的曝光秒数。";
+                return false;
+            }
+
+            if (exposureSeconds <= 0)
+            {
+                errorMessage = "曝光秒数必须大于 0。";
+                return false;
+            }
+
+            if (exposureSeconds > 3600)
+            {
+                errorMessage = "曝光秒数过长，请输入不超过 3600 的值。";
+                return false;
+            }
+
+            return true;
         }
 
         // Print testing execution
@@ -225,6 +313,7 @@ namespace MotorControl
         public void Dispose()
         {
             _executePrintButton.Click -= ExecutePrintButton_Click;
+            _confirmExposureSecondsButton.Click -= ConfirmExposureSecondsButton_Click;
         }
     }
 }
