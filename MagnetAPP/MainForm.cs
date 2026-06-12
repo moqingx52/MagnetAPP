@@ -147,6 +147,9 @@ namespace MotorControl
         private TextBox textBox12;
         private TextBox textBox11;
         private Button button19;
+        private TextBox textBox13;
+        private Button button20;
+        private Label label36;
         private Label label23;
 
         // Properties for IDisplayControl interface
@@ -369,7 +372,7 @@ namespace MotorControl
                 _klipperController = new KlipperController(
                     this, txtKlipperAddress, txtCommand, textBoxGcode, textBoxGcode2,
                     btnConnect, btnSendCommand, buttonGcode, buttonGcode2, rtbLog, lblStatus,
-                    textBox2);
+                    textBox1);
 
                 _motorPositionController = new MotorPositionController(
                     this, _klipperController, textBox5, textBox6, textBox7, textBox9, textBox10,
@@ -386,7 +389,7 @@ namespace MotorControl
 
 
                 _gcodeController = new GCodeController(
-                    this, _klipperController, _magneticFieldController,
+                    this, _klipperController, _magneticFieldController, textBox1, button3, richTextBox2, richTextBox3,
                     textBox2, button4, richTextBox4, richTextBox5);
 
                 DisplayManager.Instance.Initialize(this);
@@ -478,6 +481,8 @@ namespace MotorControl
             textBox1 = new TextBox();
             label10 = new Label();
             groupBox6 = new GroupBox();
+            textBox13 = new TextBox();
+            button20 = new Button();
             label15 = new Label();
             label14 = new Label();
             richTextBox5 = new RichTextBox();
@@ -519,6 +524,7 @@ namespace MotorControl
             comboBox3 = new ComboBox();
             label31 = new Label();
             button19 = new Button();
+            label36 = new Label();
             groupBox2.SuspendLayout();
             groupBox3.SuspendLayout();
             groupBox4.SuspendLayout();
@@ -1118,7 +1124,7 @@ namespace MotorControl
             groupBox1.Controls.Add(label10);
             groupBox1.Location = new Point(1078, 12);
             groupBox1.Name = "groupBox1";
-            groupBox1.Size = new Size(579, 398);
+            groupBox1.Size = new Size(579, 26);
             groupBox1.TabIndex = 21;
             groupBox1.TabStop = false;
             groupBox1.Text = "屏幕跟随测试";
@@ -1184,6 +1190,9 @@ namespace MotorControl
             // 
             // groupBox6
             // 
+            groupBox6.Controls.Add(label36);
+            groupBox6.Controls.Add(textBox13);
+            groupBox6.Controls.Add(button20);
             groupBox6.Controls.Add(label15);
             groupBox6.Controls.Add(label14);
             groupBox6.Controls.Add(richTextBox5);
@@ -1191,12 +1200,28 @@ namespace MotorControl
             groupBox6.Controls.Add(label13);
             groupBox6.Controls.Add(button4);
             groupBox6.Controls.Add(textBox2);
-            groupBox6.Location = new Point(1678, 12);
+            groupBox6.Location = new Point(1078, 40);
             groupBox6.Name = "groupBox6";
             groupBox6.Size = new Size(579, 385);
             groupBox6.TabIndex = 22;
             groupBox6.TabStop = false;
-            groupBox6.Text = "GCODE执行";
+            groupBox6.Text = "打印测试";
+            // 
+            // textBox13
+            // 
+            textBox13.Location = new Point(245, 26);
+            textBox13.Name = "textBox13";
+            textBox13.Size = new Size(208, 27);
+            textBox13.TabIndex = 7;
+            // 
+            // button20
+            // 
+            button20.Location = new Point(479, 28);
+            button20.Name = "button20";
+            button20.Size = new Size(94, 29);
+            button20.TabIndex = 6;
+            button20.Text = "确认间隔";
+            button20.UseVisualStyleBackColor = true;
             // 
             // label15
             // 
@@ -1247,7 +1272,7 @@ namespace MotorControl
             button4.Name = "button4";
             button4.Size = new Size(94, 29);
             button4.TabIndex = 1;
-            button4.Text = "开始执行";
+            button4.Text = "执行";
             button4.UseVisualStyleBackColor = true;
             // 
             // textBox2
@@ -1453,7 +1478,7 @@ namespace MotorControl
             groupBox9.Controls.Add(label31);
             groupBox9.Location = new Point(1678, 431);
             groupBox9.Name = "groupBox9";
-            groupBox9.Size = new Size(566, 424);
+            groupBox9.Size = new Size(566, 252);
             groupBox9.TabIndex = 27;
             groupBox9.TabStop = false;
             groupBox9.Text = "磁场发生器";
@@ -1578,6 +1603,15 @@ namespace MotorControl
             button19.TabIndex = 28;
             button19.Text = "刷新全局com";
             button19.UseVisualStyleBackColor = true;
+            // 
+            // label36
+            // 
+            label36.AutoSize = true;
+            label36.Location = new Point(459, 33);
+            label36.Name = "label36";
+            label36.Size = new Size(18, 20);
+            label36.TabIndex = 29;
+            label36.Text = "S";
             // 
             // MainForm
             // 
