@@ -9,9 +9,6 @@ namespace _3DPrint
 {
     public class _3DPrinter
     {
-        private const double PixelSize = 0.072; // 72微米转换为毫米
-        private const int ScreenWidth = 2130;
-        private const int ScreenHeight = 1080;
         private const int DisplayHalfWidth = 14;
 
         private readonly MainForm _mainForm;
@@ -48,16 +45,9 @@ namespace _3DPrint
                         double xMm = double.Parse(match.Groups[1].Value);
                         double yMm = double.Parse(match.Groups[2].Value);
 
-                        // 将毫米坐标转换为像素坐标
-                        int xPixel = (int)(xMm / PixelSize - 4.4 / PixelSize);
-                        int yPixel = (int)(yMm / PixelSize + 16 / PixelSize);
-
-                        //实际坐标系偏移：原点在x方向偏移了-24.00, y方向偏移了-1.00
-
-
-                        // 确保像素坐标在屏幕范围内，以下是需要随运动路径更改的地方
-                        xPixel = Math.Min(Math.Max(xPixel, DisplayHalfWidth), ScreenWidth - DisplayHalfWidth);
-                        yPixel = Math.Min(Math.Max(yPixel, DisplayHalfWidth), ScreenHeight - DisplayHalfWidth);
+                        (int xPixel, int yPixel) = DisplayAlignmentSettings.RobotMillimetersToDisplayPixel(xMm, yMm);
+                        xPixel = Math.Min(Math.Max(xPixel, DisplayHalfWidth), DisplayAlignmentSettings.ScreenWidth - DisplayHalfWidth);
+                        yPixel = Math.Min(Math.Max(yPixel, DisplayHalfWidth), DisplayAlignmentSettings.ScreenHeight - DisplayHalfWidth);
 
 
 

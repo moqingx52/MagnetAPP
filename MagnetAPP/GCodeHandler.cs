@@ -25,10 +25,6 @@ public class GCodeHandler
 
                 List<string> gcodeLines = new List<string>();
 
-                // 添加G代码头部
-                gcodeLines.Add("G21"); // 设置单位为毫米
-                gcodeLines.Add("G90"); // 使用绝对坐标
-
                 // 遍历图片像素
                 for (int y = 0; y < bmp.Height; y++)
                 {

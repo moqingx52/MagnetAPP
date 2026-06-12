@@ -67,6 +67,7 @@ namespace MotorControl
 
             InitializeControls();
             UpdatePositionLabels();
+            UpdateAlignmentResultText();
         }
 
         private void InitializeControls()
@@ -152,10 +153,11 @@ namespace MotorControl
                 double centerX = (x1 + x2) / 2.0;
                 double centerY = (y1 + y2) / 2.0;
 
-                double offsetX = robotX - centerX * 0.072;
-                double offsetY = robotY - centerY * 0.072;
+                double offsetX = robotX - centerX * DisplayAlignmentSettings.PixelSizeMillimeters;
+                double offsetY = robotY - centerY * DisplayAlignmentSettings.PixelSizeMillimeters;
+                DisplayAlignmentSettings.UpdateOffsets(offsetX, offsetY);
 
-                _alignmentResultTextBox.Text = $"原点在x方向偏移了{offsetX:F2}, y方向偏移了{offsetY:F2}";
+                UpdateAlignmentResultText("显示校准已更新");
             }
             catch (FormatException)
             {
@@ -175,6 +177,12 @@ namespace MotorControl
                 _currentYLabel.Text = _currentY.ToString("F2");
                 _currentZLabel.Text = _currentZ.ToString("F2");
             });
+        }
+
+        private void UpdateAlignmentResultText(string prefix = "当前显示校准")
+        {
+            _alignmentResultTextBox.Text =
+                $"{prefix}: offsetX={DisplayAlignmentSettings.OffsetXMillimeters:F2}mm, offsetY={DisplayAlignmentSettings.OffsetYMillimeters:F2}mm";
         }
 
         public void SetCurrentPosition(double x, double y, double z)

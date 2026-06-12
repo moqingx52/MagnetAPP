@@ -369,7 +369,7 @@ namespace MotorControl
                 _klipperController = new KlipperController(
                     this, txtKlipperAddress, txtCommand, textBoxGcode, textBoxGcode2,
                     btnConnect, btnSendCommand, buttonGcode, buttonGcode2, rtbLog, lblStatus,
-                    textBox1);
+                    textBox2);
 
                 _motorPositionController = new MotorPositionController(
                     this, _klipperController, textBox5, textBox6, textBox7, textBox9, textBox10,
@@ -386,7 +386,7 @@ namespace MotorControl
 
 
                 _gcodeController = new GCodeController(
-                    this, _klipperController, _magneticFieldController, textBox1, button3, richTextBox2, richTextBox3,
+                    this, _klipperController, _magneticFieldController,
                     textBox2, button4, richTextBox4, richTextBox5);
 
                 DisplayManager.Instance.Initialize(this);
@@ -1196,7 +1196,7 @@ namespace MotorControl
             groupBox6.Size = new Size(579, 385);
             groupBox6.TabIndex = 22;
             groupBox6.TabStop = false;
-            groupBox6.Text = "打印测试";
+            groupBox6.Text = "GCODE执行";
             // 
             // label15
             // 
@@ -1247,7 +1247,7 @@ namespace MotorControl
             button4.Name = "button4";
             button4.Size = new Size(94, 29);
             button4.TabIndex = 1;
-            button4.Text = "执行";
+            button4.Text = "开始执行";
             button4.UseVisualStyleBackColor = true;
             // 
             // textBox2
