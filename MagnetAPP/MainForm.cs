@@ -1016,7 +1016,7 @@ namespace MotorControl
             textBoxGcode.Name = "textBoxGcode";
             textBoxGcode.Size = new Size(259, 27);
             textBoxGcode.TabIndex = 20;
-            textBoxGcode.Text = "C:\\研究生\\klipper\\test1.png";
+            textBoxGcode.Text = "C:\\Users\\Administrator\\Desktop";
             // 
             // txtKlipperAddress
             // 
