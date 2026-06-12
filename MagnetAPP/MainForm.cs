@@ -393,7 +393,7 @@ namespace MotorControl
 
                 _ultravioletLightUiController = new UltravioletLightUiController(
                     this,
-                    showErrors => EnsureUnoDeviceClient(showErrors),
+                    EnsureUnoDeviceClient,
                     BrightnessBar,
                     button12,
                     button13,
