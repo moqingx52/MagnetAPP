@@ -1,7 +1,10 @@
 ﻿using System;
+using System.Globalization;
 using System.IO;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using DLP;
 using GcodeFollow;
 using _3DPrint;
 
@@ -11,6 +14,7 @@ namespace MotorControl
     {
         private readonly MainForm _mainForm;
         private readonly KlipperController _klipperController;
+        private readonly MagneticFieldController? _magneticFieldController;
 
         private readonly TextBox _followGCodePathTextBox;
         private readonly Button _startFollowButton;
@@ -27,11 +31,13 @@ namespace MotorControl
         private bool _isSubscribed = false;
 
         public GCodeController(MainForm mainForm, KlipperController klipperController,
+            MagneticFieldController? magneticFieldController,
             TextBox textBox1, Button button3, RichTextBox richTextBox2, RichTextBox richTextBox3,
             TextBox textBox2, Button button4, RichTextBox richTextBox4, RichTextBox richTextBox5)
         {
             _mainForm = mainForm;
             _klipperController = klipperController;
+            _magneticFieldController = magneticFieldController;
             _followGCodePathTextBox = textBox1;
             _startFollowButton = button3;
             _sentGCodeLog = richTextBox2;
@@ -97,7 +103,7 @@ namespace MotorControl
                 _startFollowButton.Enabled = false;
                 try
                 {
-                    await _processor.ProcessGCodeFile(filePath2);
+                    await ProcessMagneticVoxelGCodeFileAsync(filePath2);
                 }
                 finally
                 {
@@ -108,6 +114,106 @@ namespace MotorControl
             {
                 _sentGCodeLog.AppendLineSafe("异常：" + ex.Message);
             }
+        }
+
+        private async Task ProcessMagneticVoxelGCodeFileAsync(string filePath)
+        {
+            string[] lines = await File.ReadAllLinesAsync(filePath);
+            DisplayManager.Instance.EnableAutoUpdate();
+
+            try
+            {
+                foreach (string rawLine in lines)
+                {
+                    string line = rawLine.Trim();
+                    if (string.IsNullOrWhiteSpace(line) || line.StartsWith(";"))
+                    {
+                        continue;
+                    }
+
+                    string command = StripDoubleSlashComment(line).Trim();
+                    if (string.IsNullOrWhiteSpace(command))
+                    {
+                        continue;
+                    }
+
+                    if (TryExtractFieldVector(line, out double mx, out double my, out double mz)
+                        && _magneticFieldController is not null)
+                    {
+                        await _magneticFieldController.SetAnglesForFieldVectorAsync(mx, my, mz);
+                    }
+
+                    UpdateWhiteSquareFromGCode(command);
+                    _sentGCodeLog.AppendLineSafe(command);
+
+                    if (!await _klipperController.SendCommandAsync(command))
+                    {
+                        throw new InvalidOperationException($"发送命令失败: {command}");
+                    }
+
+                    await Task.Delay(100);
+                }
+            }
+            finally
+            {
+                DisplayManager.Instance.DisableAutoUpdate();
+                DisplayManager.Instance.ShowBlackScreen();
+            }
+        }
+
+        private void UpdateWhiteSquareFromGCode(string gcode)
+        {
+            if (!TryExtractXy(gcode, out double x, out double y))
+            {
+                return;
+            }
+
+            const double pixelSizeMillimeters = 0.018;
+            const int pixelGroup = 4;
+            int pixelX = (int)Math.Round(x / pixelSizeMillimeters / pixelGroup);
+            int pixelY = (int)Math.Round(y / pixelSizeMillimeters / pixelGroup);
+
+            _followPositionLog.RunOnUiThread(() =>
+                _followPositionLog.Text = $"currentX: {pixelX}, currentY: {pixelY}{Environment.NewLine}");
+
+            DisplayManager.Instance.UpdateDisplay(pixelX, pixelX + 1, pixelY, pixelY + 1);
+        }
+
+        private static string StripDoubleSlashComment(string line)
+        {
+            int commentIndex = line.IndexOf("//", StringComparison.Ordinal);
+            return commentIndex >= 0 ? line[..commentIndex] : line;
+        }
+
+        private static bool TryExtractFieldVector(string line, out double x, out double y, out double z)
+        {
+            x = y = z = 0;
+            const string numberPattern = @"([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)";
+            Match match = Regex.Match(
+                line,
+                @"//\s*\[\s*" + numberPattern + @"\s*,\s*" + numberPattern + @"\s*,\s*" + numberPattern + @"\s*\]");
+            return match.Success
+                && TryParseDouble(match.Groups[1].Value, out x)
+                && TryParseDouble(match.Groups[2].Value, out y)
+                && TryParseDouble(match.Groups[3].Value, out z);
+        }
+
+        private static bool TryExtractXy(string gcode, out double x, out double y)
+        {
+            x = y = 0;
+            const string numberPattern = @"([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)";
+            Match xMatch = Regex.Match(gcode, @"(?:^|\s)X" + numberPattern);
+            Match yMatch = Regex.Match(gcode, @"(?:^|\s)Y" + numberPattern);
+            return xMatch.Success
+                && yMatch.Success
+                && TryParseDouble(xMatch.Groups[1].Value, out x)
+                && TryParseDouble(yMatch.Groups[1].Value, out y);
+        }
+
+        private static bool TryParseDouble(string value, out double result)
+        {
+            return double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out result)
+                || double.TryParse(value, out result);
         }
 
         // Print testing execution

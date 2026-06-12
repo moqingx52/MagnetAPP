@@ -1,5 +1,9 @@
 ﻿using System;
+using System.Globalization;
+using System.IO;
+using System.Threading.Tasks;
 using System.Windows.Forms;
+using MagneticFieldReader;
 
 namespace MotorControl
 {
@@ -30,6 +34,11 @@ namespace MotorControl
         // Status properties
         public bool IsAngleUpdateRunning { get; private set; }
         private bool _isReadingActive = false;
+        private readonly CsvSearcher _csvSearcher = new();
+        private double _currentYawAngle = 0.0;
+        private double _currentRollAngle = 0.0;
+        private bool _hasCommandedAngles = false;
+        private MagneticSensor? _magneticSensor;
 
         public MagneticFieldController(MainForm mainForm, RichTextBox richTextBox1, Button button2,
             Label labelX, Label labelY, Label labelZ, MotorController? motorController,
@@ -95,14 +104,44 @@ namespace MotorControl
 
         private void StartMagneticFieldReading()
         {
-            // 实现开始磁场读取的逻辑
-            // 这里需要根据具体的硬件接口实现
-            UpdateMagneticFieldValues(0, 0, 0); // 示例调用
+            string? portName = _mainForm.MagneticFieldPort;
+            if (string.IsNullOrWhiteSpace(portName))
+            {
+                throw new InvalidOperationException("请先在磁场传感器下拉列表中选择串口。");
+            }
+
+            _magneticSensor?.Dispose();
+            _magneticSensor = new MagneticSensor(portName);
+            _magneticSensor.OnDataReceived += MagneticSensor_OnDataReceived;
+            _magneticSensor.OnError += MagneticSensor_OnError;
+
+            if (!_magneticSensor.StartReading())
+            {
+                throw new InvalidOperationException($"无法启动磁场传感器读取: {portName}");
+            }
         }
 
         private void StopMagneticFieldReading()
         {
-            // 实现停止磁场读取的逻辑
+            if (_magneticSensor is null)
+            {
+                return;
+            }
+
+            _magneticSensor.OnDataReceived -= MagneticSensor_OnDataReceived;
+            _magneticSensor.OnError -= MagneticSensor_OnError;
+            _magneticSensor.Dispose();
+            _magneticSensor = null;
+        }
+
+        private void MagneticSensor_OnDataReceived(object? sender, MagneticDataEventArgs e)
+        {
+            UpdateMagneticFieldValues(e.X, e.Y, e.Z);
+        }
+
+        private void MagneticSensor_OnError(object? sender, ErrorEventArgs e)
+        {
+            _fieldLog.AppendLineSafe($"磁场传感器错误: {e.GetException().Message}");
         }
 
         public void UpdateMagneticFieldValues(double x, double y, double z)
@@ -130,12 +169,20 @@ namespace MotorControl
 
         #region Magnetic Field Orientation Methods
 
-        private void SetYawButton_Click(object? sender, EventArgs e)
+        private async void SetYawButton_Click(object? sender, EventArgs e)
         {
             if (double.TryParse(_yawAngleTextBox.Text, out double targetYaw))
             {
-                UpdateYawAngle(targetYaw);
-                _angleLog.AppendLineSafe($"偏航角设置为: {targetYaw:F2}°");
+                try
+                {
+                    await UpdateYawAngleAsync(targetYaw);
+                    _angleLog.AppendLineSafe($"偏航角设置为: {targetYaw:F2}°");
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"偏航角设置失败: {ex.Message}", "错误",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
             }
             else
             {
@@ -144,12 +191,20 @@ namespace MotorControl
             }
         }
 
-        private void SetRollButton_Click(object? sender, EventArgs e)
+        private async void SetRollButton_Click(object? sender, EventArgs e)
         {
             if (double.TryParse(_rollAngleTextBox.Text, out double targetRoll))
             {
-                UpdateRollAngle(targetRoll);
-                _angleLog.AppendLineSafe($"滚转角设置为: {targetRoll:F2}°");
+                try
+                {
+                    await UpdateRollAngleAsync(targetRoll);
+                    _angleLog.AppendLineSafe($"滚转角设置为: {targetRoll:F2}°");
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"滚转角设置失败: {ex.Message}", "错误",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
             }
             else
             {
@@ -187,14 +242,98 @@ namespace MotorControl
 
         public void UpdateYawAngle(double yawAngle)
         {
-            // 实现偏航角更新逻辑
-            // 这里需要根据具体的硬件接口实现
+            _ = UpdateYawAngleAsync(yawAngle);
         }
 
         public void UpdateRollAngle(double rollAngle)
         {
-            // 实现滚转角更新逻辑
-            // 这里需要根据具体的硬件接口实现
+            _ = UpdateRollAngleAsync(rollAngle);
+        }
+
+        public async Task SetAnglesForFieldVectorAsync(double targetX, double targetY, double targetZ)
+        {
+            await InitializeCurrentAnglesFromSensorIfAvailableAsync();
+
+            SearchResultEventArgs? result = await _csvSearcher.SearchInCsvAsync(
+                FormatNumber(targetX),
+                FormatNumber(targetY),
+                FormatNumber(targetZ));
+            if (result is null)
+            {
+                throw new InvalidOperationException($"CSV 中找不到磁场方向近似值: [{targetX},{targetY},{targetZ}]");
+            }
+
+            double yaw = ParseAngle(result.ResultColumn1);
+            double roll = ParseAngle(result.ResultColumn2);
+
+            _mainForm.RunOnUiThread(() =>
+            {
+                _yawAngleTextBox.Text = yaw.ToString("F2", CultureInfo.InvariantCulture);
+                _rollAngleTextBox.Text = roll.ToString("F2", CultureInfo.InvariantCulture);
+            });
+
+            await UpdateYawAngleAsync(yaw);
+            await UpdateRollAngleAsync(roll);
+            _angleLog.AppendLineSafe(
+                $"目标磁场 [{targetX:F2},{targetY:F2},{targetZ:F2}] -> 偏航 {yaw:F2}°, 滚转 {roll:F2}°");
+        }
+
+        public async Task UpdateYawAngleAsync(double yawAngle)
+        {
+            await MoveAngleAxisAsync(UnoMotor.Motor1, yawAngle, _currentYawAngle, value => _currentYawAngle = value, "偏航");
+        }
+
+        public async Task UpdateRollAngleAsync(double rollAngle)
+        {
+            await MoveAngleAxisAsync(UnoMotor.Motor2, rollAngle, _currentRollAngle, value => _currentRollAngle = value, "滚转");
+        }
+
+        private async Task MoveAngleAxisAsync(
+            UnoMotor motor,
+            double targetAngle,
+            double currentAngle,
+            Action<double> updateCurrentAngle,
+            string axisName)
+        {
+            UnoDeviceClient unoDevice = _mainForm.GetOrConnectUnoDevice(true)
+                ?? throw new InvalidOperationException("UNO 未连接。");
+
+            double delta = ShortestSignedDelta(currentAngle, targetAngle);
+            int steps = (int)Math.Round(Math.Abs(delta) / 360.0 * MotorController.STEPS_PER_REVOLUTION);
+            if (steps > 0)
+            {
+                UnoMotorDirection direction = delta >= 0
+                    ? UnoMotorDirection.Forward
+                    : UnoMotorDirection.Reverse;
+                await unoDevice.MoveMotorAsync(motor, direction, steps);
+            }
+
+            double normalizedTarget = NormalizeAngle(targetAngle);
+            updateCurrentAngle(normalizedTarget);
+            _hasCommandedAngles = true;
+            _angleLog.AppendLineSafe($"{axisName}轴移动: {currentAngle:F2}° -> {normalizedTarget:F2}°, steps={steps}");
+        }
+
+        private async Task InitializeCurrentAnglesFromSensorIfAvailableAsync()
+        {
+            if (_hasCommandedAngles || GetMagneticFieldStrength() <= 1e-6)
+            {
+                return;
+            }
+
+            SearchResultEventArgs? result = await _csvSearcher.SearchInCsvAsync(
+                FormatNumber(MagneticX),
+                FormatNumber(MagneticY),
+                FormatNumber(MagneticZ));
+            if (result is null)
+            {
+                return;
+            }
+
+            _currentYawAngle = NormalizeAngle(ParseAngle(result.ResultColumn1));
+            _currentRollAngle = NormalizeAngle(ParseAngle(result.ResultColumn2));
+            _hasCommandedAngles = true;
+            _angleLog.AppendLineSafe($"由当前磁场估计磁铁角度: 偏航 {_currentYawAngle:F2}°, 滚转 {_currentRollAngle:F2}°");
         }
 
         public void StartContinuousAngleUpdate()
@@ -256,14 +395,12 @@ namespace MotorControl
 
         public double GetCurrentYawAngle()
         {
-            // 返回当前偏航角
-            return 0.0; // 需要根据实际实现返回真实值
+            return _currentYawAngle;
         }
 
         public double GetCurrentRollAngle()
         {
-            // 返回当前滚转角
-            return 0.0; // 需要根据实际实现返回真实值
+            return _currentRollAngle;
         }
 
         public (double X, double Y, double Z) GetCurrentMagneticField()
@@ -305,6 +442,43 @@ namespace MotorControl
             _setYawButton.Click -= SetYawButton_Click;
             _setRollButton.Click -= SetRollButton_Click;
             _toggleAngleUpdateButton.Click -= ToggleAngleUpdateButton_Click;
+        }
+
+        private static string FormatNumber(double value)
+        {
+            return value.ToString("G17", CultureInfo.InvariantCulture);
+        }
+
+        private static double ParseAngle(string value)
+        {
+            if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double result)
+                || double.TryParse(value, out result))
+            {
+                return result;
+            }
+
+            throw new InvalidOperationException($"角度解析失败: {value}");
+        }
+
+        private static double NormalizeAngle(double angle)
+        {
+            double normalized = angle % 360.0;
+            return normalized < 0 ? normalized + 360.0 : normalized;
+        }
+
+        private static double ShortestSignedDelta(double currentAngle, double targetAngle)
+        {
+            double delta = NormalizeAngle(targetAngle) - NormalizeAngle(currentAngle);
+            if (delta > 180.0)
+            {
+                delta -= 360.0;
+            }
+            else if (delta < -180.0)
+            {
+                delta += 360.0;
+            }
+
+            return delta;
         }
     }
 }

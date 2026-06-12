@@ -221,6 +221,11 @@ namespace MotorControl
             return Klipper?.IsConnected == true;
         }
 
+        public UnoDeviceClient? GetOrConnectUnoDevice(bool showErrors)
+        {
+            return EnsureUnoDeviceClient(showErrors);
+        }
+
         private bool InitializeControllers()
         {
             try
@@ -363,7 +368,8 @@ namespace MotorControl
 
                 _klipperController = new KlipperController(
                     this, txtKlipperAddress, txtCommand, textBoxGcode, textBoxGcode2,
-                    btnConnect, btnSendCommand, buttonGcode, buttonGcode2, rtbLog, lblStatus);
+                    btnConnect, btnSendCommand, buttonGcode, buttonGcode2, rtbLog, lblStatus,
+                    textBox1);
 
                 _motorPositionController = new MotorPositionController(
                     this, _klipperController, textBox5, textBox6, textBox7, textBox9, textBox10,
@@ -380,7 +386,7 @@ namespace MotorControl
 
 
                 _gcodeController = new GCodeController(
-                    this, _klipperController, textBox1, button3, richTextBox2, richTextBox3,
+                    this, _klipperController, _magneticFieldController, textBox1, button3, richTextBox2, richTextBox3,
                     textBox2, button4, richTextBox4, richTextBox5);
 
                 DisplayManager.Instance.Initialize(this);

@@ -17,6 +17,7 @@ namespace MotorControl
         private readonly TextBox _txtCommand;
         private readonly TextBox _textBoxGcode;
         private readonly TextBox _textBoxGcode2;
+        private readonly TextBox _generatedGCodePathTextBox;
         private readonly Button _btnConnect;
         private readonly Button _btnSendCommand;
         private readonly Button _buttonGcode;
@@ -25,18 +26,21 @@ namespace MotorControl
         private readonly Label _lblStatus;
 
         private KlipperCommunicator _klipper;
+        private readonly MagneticVoxelGCodeGenerator _magneticVoxelGCodeGenerator = new();
 
         public KlipperCommunicator Klipper => _klipper;
 
         public KlipperController(MainForm mainForm, TextBox txtKlipperAddress, TextBox txtCommand,
             TextBox textBoxGcode, TextBox textBoxGcode2, Button btnConnect, Button btnSendCommand,
-            Button buttonGcode, Button buttonGcode2, RichTextBox rtbLog, Label lblStatus)
+            Button buttonGcode, Button buttonGcode2, RichTextBox rtbLog, Label lblStatus,
+            TextBox generatedGCodePathTextBox)
         {
             _mainForm = mainForm;
             _txtKlipperAddress = txtKlipperAddress;
             _txtCommand = txtCommand;
             _textBoxGcode = textBoxGcode;
             _textBoxGcode2 = textBoxGcode2;
+            _generatedGCodePathTextBox = generatedGCodePathTextBox;
             _btnConnect = btnConnect;
             _btnSendCommand = btnSendCommand;
             _buttonGcode = buttonGcode;
@@ -168,33 +172,37 @@ namespace MotorControl
             }
         }
 
-        private void ButtonGcode_Click(object sender, EventArgs e)
+        private async void ButtonGcode_Click(object sender, EventArgs e)
         {
-            // 获取文件地址
-            string filePath = _textBoxGcode.Text;
-
-            // 检查文件是否存在
+            string filePath = _textBoxGcode.Text.Trim();
             if (!File.Exists(filePath))
             {
                 _textBoxGcode.Text = "文件不存在，请检查文件路径。";
                 return;
             }
 
+            if (!string.Equals(Path.GetExtension(filePath), ".xlsx", StringComparison.OrdinalIgnoreCase))
+            {
+                _textBoxGcode.Text = "输入文件必须是 .xlsx。";
+                return;
+            }
+
+            _buttonGcode.Enabled = false;
             try
             {
-                // 创建GCode处理器实例
-                GCodeHandler handler = new GCodeHandler();
-
-                // 处理图片并生成G代码文件
-                string outputPath = handler.ProcessImage(filePath);
-
-                // 在文本框中输出处理状态
-                _textBoxGcode.Text = $"G代码文件已生成: {outputPath}";
+                string outputPath = await _magneticVoxelGCodeGenerator.GenerateAsync(filePath);
+                _generatedGCodePathTextBox.Text = outputPath;
+                _textBoxGcode.Text = filePath;
+                MessageBox.Show($"GCODE 文件已生成:\n{outputPath}", "完成",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
-                // 处理过程中发生错误
                 _textBoxGcode.Text = "处理文件时发生错误: " + ex.Message;
+            }
+            finally
+            {
+                _buttonGcode.Enabled = true;
             }
         }
 
