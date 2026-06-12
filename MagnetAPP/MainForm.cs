@@ -146,6 +146,7 @@ namespace MotorControl
         private Label label34;
         private TextBox textBox12;
         private TextBox textBox11;
+        private Button button19;
         private Label label23;
 
         // Properties for IDisplayControl interface
@@ -444,6 +445,8 @@ namespace MotorControl
             btnSendCommand = new Button();
             btnConnect = new Button();
             groupBox5 = new GroupBox();
+            comboBox1 = new ComboBox();
+            label29 = new Label();
             button2 = new Button();
             label9 = new Label();
             richTextBox1 = new RichTextBox();
@@ -480,24 +483,23 @@ namespace MotorControl
             label27 = new Label();
             label26 = new Label();
             BrightnessBar = new TrackBar();
-            label29 = new Label();
-            comboBox1 = new ComboBox();
             comboBox2 = new ComboBox();
             label30 = new Label();
             groupBox9 = new GroupBox();
-            label31 = new Label();
-            comboBox3 = new ComboBox();
-            label32 = new Label();
-            label33 = new Label();
-            textBox11 = new TextBox();
-            textBox12 = new TextBox();
-            label34 = new Label();
-            label35 = new Label();
-            button14 = new Button();
-            button15 = new Button();
-            button16 = new Button();
-            button17 = new Button();
             button18 = new Button();
+            button17 = new Button();
+            button16 = new Button();
+            button15 = new Button();
+            button14 = new Button();
+            label35 = new Label();
+            label34 = new Label();
+            textBox12 = new TextBox();
+            textBox11 = new TextBox();
+            label33 = new Label();
+            label32 = new Label();
+            comboBox3 = new ComboBox();
+            label31 = new Label();
+            button19 = new Button();
             groupBox2.SuspendLayout();
             groupBox3.SuspendLayout();
             groupBox4.SuspendLayout();
@@ -1043,6 +1045,23 @@ namespace MotorControl
             groupBox5.TabStop = false;
             groupBox5.Text = "磁场读取";
             // 
+            // comboBox1
+            // 
+            comboBox1.FormattingEnabled = true;
+            comboBox1.Location = new Point(57, 31);
+            comboBox1.Name = "comboBox1";
+            comboBox1.Size = new Size(105, 28);
+            comboBox1.TabIndex = 4;
+            // 
+            // label29
+            // 
+            label29.AutoSize = true;
+            label29.Location = new Point(11, 34);
+            label29.Name = "label29";
+            label29.Size = new Size(39, 20);
+            label29.TabIndex = 3;
+            label29.Text = "端口";
+            // 
             // button2
             // 
             button2.Location = new Point(321, 26);
@@ -1381,23 +1400,6 @@ namespace MotorControl
             BrightnessBar.Size = new Size(368, 56);
             BrightnessBar.TabIndex = 0;
             // 
-            // label29
-            // 
-            label29.AutoSize = true;
-            label29.Location = new Point(11, 34);
-            label29.Name = "label29";
-            label29.Size = new Size(39, 20);
-            label29.TabIndex = 3;
-            label29.Text = "端口";
-            // 
-            // comboBox1
-            // 
-            comboBox1.FormattingEnabled = true;
-            comboBox1.Location = new Point(57, 31);
-            comboBox1.Name = "comboBox1";
-            comboBox1.Size = new Size(105, 28);
-            comboBox1.TabIndex = 4;
-            // 
             // comboBox2
             // 
             comboBox2.FormattingEnabled = true;
@@ -1437,99 +1439,14 @@ namespace MotorControl
             groupBox9.TabStop = false;
             groupBox9.Text = "磁场发生器";
             // 
-            // label31
+            // button18
             // 
-            label31.AutoSize = true;
-            label31.Location = new Point(18, 38);
-            label31.Name = "label31";
-            label31.Size = new Size(66, 20);
-            label31.TabIndex = 0;
-            label31.Text = "485端口";
-            // 
-            // comboBox3
-            // 
-            comboBox3.FormattingEnabled = true;
-            comboBox3.Location = new Point(125, 38);
-            comboBox3.Name = "comboBox3";
-            comboBox3.Size = new Size(151, 28);
-            comboBox3.TabIndex = 1;
-            // 
-            // label32
-            // 
-            label32.AutoSize = true;
-            label32.Location = new Point(22, 91);
-            label32.Name = "label32";
-            label32.Size = new Size(69, 20);
-            label32.TabIndex = 2;
-            label32.Text = "前后位置";
-            // 
-            // label33
-            // 
-            label33.AutoSize = true;
-            label33.Location = new Point(22, 147);
-            label33.Name = "label33";
-            label33.Size = new Size(99, 20);
-            label33.TabIndex = 3;
-            label33.Text = "磁铁当前转速";
-            // 
-            // textBox11
-            // 
-            textBox11.Location = new Point(218, 144);
-            textBox11.Name = "textBox11";
-            textBox11.Size = new Size(125, 27);
-            textBox11.TabIndex = 4;
-            // 
-            // textBox12
-            // 
-            textBox12.Location = new Point(218, 196);
-            textBox12.Name = "textBox12";
-            textBox12.Size = new Size(311, 27);
-            textBox12.TabIndex = 5;
-            // 
-            // label34
-            // 
-            label34.AutoSize = true;
-            label34.Location = new Point(22, 199);
-            label34.Name = "label34";
-            label34.Size = new Size(159, 20);
-            label34.TabIndex = 6;
-            label34.Text = "使用公式控制磁铁转速";
-            // 
-            // label35
-            // 
-            label35.AutoSize = true;
-            label35.Location = new Point(368, 149);
-            label35.Name = "label35";
-            label35.Size = new Size(46, 20);
-            label35.TabIndex = 7;
-            label35.Text = "rad/s";
-            // 
-            // button14
-            // 
-            button14.Location = new Point(420, 143);
-            button14.Name = "button14";
-            button14.Size = new Size(45, 29);
-            button14.TabIndex = 8;
-            button14.Text = "+";
-            button14.UseVisualStyleBackColor = true;
-            // 
-            // button15
-            // 
-            button15.Location = new Point(479, 144);
-            button15.Name = "button15";
-            button15.Size = new Size(50, 29);
-            button15.TabIndex = 9;
-            button15.Text = "-";
-            button15.UseVisualStyleBackColor = true;
-            // 
-            // button16
-            // 
-            button16.Location = new Point(127, 144);
-            button16.Name = "button16";
-            button16.Size = new Size(71, 29);
-            button16.TabIndex = 10;
-            button16.Text = "stop";
-            button16.UseVisualStyleBackColor = true;
+            button18.Location = new Point(237, 91);
+            button18.Name = "button18";
+            button18.Size = new Size(94, 29);
+            button18.TabIndex = 12;
+            button18.Text = "后退";
+            button18.UseVisualStyleBackColor = true;
             // 
             // button17
             // 
@@ -1540,18 +1457,113 @@ namespace MotorControl
             button17.Text = "前进";
             button17.UseVisualStyleBackColor = true;
             // 
-            // button18
+            // button16
             // 
-            button18.Location = new Point(237, 91);
-            button18.Name = "button18";
-            button18.Size = new Size(94, 29);
-            button18.TabIndex = 12;
-            button18.Text = "后退";
-            button18.UseVisualStyleBackColor = true;
+            button16.Location = new Point(127, 144);
+            button16.Name = "button16";
+            button16.Size = new Size(71, 29);
+            button16.TabIndex = 10;
+            button16.Text = "stop";
+            button16.UseVisualStyleBackColor = true;
+            // 
+            // button15
+            // 
+            button15.Location = new Point(479, 144);
+            button15.Name = "button15";
+            button15.Size = new Size(50, 29);
+            button15.TabIndex = 9;
+            button15.Text = "-";
+            button15.UseVisualStyleBackColor = true;
+            // 
+            // button14
+            // 
+            button14.Location = new Point(420, 143);
+            button14.Name = "button14";
+            button14.Size = new Size(45, 29);
+            button14.TabIndex = 8;
+            button14.Text = "+";
+            button14.UseVisualStyleBackColor = true;
+            // 
+            // label35
+            // 
+            label35.AutoSize = true;
+            label35.Location = new Point(368, 149);
+            label35.Name = "label35";
+            label35.Size = new Size(46, 20);
+            label35.TabIndex = 7;
+            label35.Text = "rad/s";
+            // 
+            // label34
+            // 
+            label34.AutoSize = true;
+            label34.Location = new Point(22, 199);
+            label34.Name = "label34";
+            label34.Size = new Size(159, 20);
+            label34.TabIndex = 6;
+            label34.Text = "使用公式控制磁铁转速";
+            // 
+            // textBox12
+            // 
+            textBox12.Location = new Point(218, 196);
+            textBox12.Name = "textBox12";
+            textBox12.Size = new Size(311, 27);
+            textBox12.TabIndex = 5;
+            // 
+            // textBox11
+            // 
+            textBox11.Location = new Point(218, 144);
+            textBox11.Name = "textBox11";
+            textBox11.Size = new Size(125, 27);
+            textBox11.TabIndex = 4;
+            // 
+            // label33
+            // 
+            label33.AutoSize = true;
+            label33.Location = new Point(22, 147);
+            label33.Name = "label33";
+            label33.Size = new Size(99, 20);
+            label33.TabIndex = 3;
+            label33.Text = "磁铁当前转速";
+            // 
+            // label32
+            // 
+            label32.AutoSize = true;
+            label32.Location = new Point(22, 91);
+            label32.Name = "label32";
+            label32.Size = new Size(69, 20);
+            label32.TabIndex = 2;
+            label32.Text = "前后位置";
+            // 
+            // comboBox3
+            // 
+            comboBox3.FormattingEnabled = true;
+            comboBox3.Location = new Point(125, 38);
+            comboBox3.Name = "comboBox3";
+            comboBox3.Size = new Size(151, 28);
+            comboBox3.TabIndex = 1;
+            // 
+            // label31
+            // 
+            label31.AutoSize = true;
+            label31.Location = new Point(18, 38);
+            label31.Name = "label31";
+            label31.Size = new Size(66, 20);
+            label31.TabIndex = 0;
+            label31.Text = "485端口";
+            // 
+            // button19
+            // 
+            button19.Location = new Point(455, 762);
+            button19.Name = "button19";
+            button19.Size = new Size(152, 29);
+            button19.TabIndex = 28;
+            button19.Text = "刷新全局com";
+            button19.UseVisualStyleBackColor = true;
             // 
             // MainForm
             // 
             ClientSize = new Size(2256, 878);
+            Controls.Add(button19);
             Controls.Add(groupBox9);
             Controls.Add(label30);
             Controls.Add(comboBox2);
