@@ -389,7 +389,7 @@ namespace MotorControl
 
 
                 _gcodeController = new GCodeController(
-                    this, _klipperController, _magneticFieldController, textBox1, button3, richTextBox2, richTextBox3,
+                    this, _klipperController, _magneticFieldController,
                     textBox2, button4, richTextBox4, richTextBox5);
 
                 DisplayManager.Instance.Initialize(this);
