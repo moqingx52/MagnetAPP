@@ -114,6 +114,13 @@ namespace MotorControl
         private TextBox textBox10;
         private TextBox textBox9;
         private Label label25;
+        private GroupBox groupBox8;
+        private Button button13;
+        private Button button12;
+        private Label label27;
+        private Label label26;
+        private TrackBar BrightnessBar;
+        private Label label28;
         private Label label23;
 
         // Properties for IDisplayControl interface
@@ -325,6 +332,13 @@ namespace MotorControl
             label16 = new Label();
             button6 = new Button();
             button5 = new Button();
+            groupBox8 = new GroupBox();
+            BrightnessBar = new TrackBar();
+            label26 = new Label();
+            label27 = new Label();
+            button12 = new Button();
+            button13 = new Button();
+            label28 = new Label();
             groupBox2.SuspendLayout();
             groupBox3.SuspendLayout();
             groupBox4.SuspendLayout();
@@ -332,6 +346,8 @@ namespace MotorControl
             groupBox1.SuspendLayout();
             groupBox6.SuspendLayout();
             groupBox7.SuspendLayout();
+            groupBox8.SuspendLayout();
+            ((ISupportInitialize)BrightnessBar).BeginInit();
             SuspendLayout();
             // 
             // groupBox2
@@ -594,7 +610,7 @@ namespace MotorControl
             groupBox4.Controls.Add(btnConnect);
             groupBox4.Location = new Point(455, 12);
             groupBox4.Name = "groupBox4";
-            groupBox4.Size = new Size(594, 907);
+            groupBox4.Size = new Size(594, 843);
             groupBox4.TabIndex = 19;
             groupBox4.TabStop = false;
             groupBox4.Text = "klipper功能";
@@ -602,7 +618,7 @@ namespace MotorControl
             // label25
             // 
             label25.AutoSize = true;
-            label25.Location = new Point(364, 606);
+            label25.Location = new Point(346, 561);
             label25.Name = "label25";
             label25.Size = new Size(48, 20);
             label25.TabIndex = 46;
@@ -611,7 +627,7 @@ namespace MotorControl
             // label23
             // 
             label23.AutoSize = true;
-            label23.Location = new Point(134, 606);
+            label23.Location = new Point(116, 561);
             label23.Name = "label23";
             label23.Size = new Size(49, 20);
             label23.TabIndex = 45;
@@ -619,14 +635,14 @@ namespace MotorControl
             // 
             // textBox10
             // 
-            textBox10.Location = new Point(451, 603);
+            textBox10.Location = new Point(433, 558);
             textBox10.Name = "textBox10";
             textBox10.Size = new Size(125, 27);
             textBox10.TabIndex = 44;
             // 
             // textBox9
             // 
-            textBox9.Location = new Point(214, 606);
+            textBox9.Location = new Point(196, 561);
             textBox9.Name = "textBox9";
             textBox9.Size = new Size(125, 27);
             textBox9.TabIndex = 43;
@@ -634,7 +650,7 @@ namespace MotorControl
             // label24
             // 
             label24.AutoSize = true;
-            label24.Location = new Point(36, 610);
+            label24.Location = new Point(18, 558);
             label24.Name = "label24";
             label24.Size = new Size(69, 20);
             label24.TabIndex = 42;
@@ -642,7 +658,7 @@ namespace MotorControl
             // 
             // button11
             // 
-            button11.Location = new Point(36, 641);
+            button11.Location = new Point(18, 596);
             button11.Name = "button11";
             button11.Size = new Size(94, 29);
             button11.TabIndex = 40;
@@ -651,7 +667,7 @@ namespace MotorControl
             // 
             // textBox8
             // 
-            textBox8.Location = new Point(161, 642);
+            textBox8.Location = new Point(143, 597);
             textBox8.Name = "textBox8";
             textBox8.Size = new Size(415, 27);
             textBox8.TabIndex = 39;
@@ -659,7 +675,7 @@ namespace MotorControl
             // label22
             // 
             label22.AutoSize = true;
-            label22.Location = new Point(48, 460);
+            label22.Location = new Point(6, 419);
             label22.Name = "label22";
             label22.Size = new Size(39, 20);
             label22.TabIndex = 38;
@@ -667,7 +683,7 @@ namespace MotorControl
             // 
             // textBox7
             // 
-            textBox7.Location = new Point(161, 568);
+            textBox7.Location = new Point(58, 510);
             textBox7.Name = "textBox7";
             textBox7.Size = new Size(125, 27);
             textBox7.TabIndex = 37;
@@ -675,7 +691,7 @@ namespace MotorControl
             // 
             // textBox6
             // 
-            textBox6.Location = new Point(161, 529);
+            textBox6.Location = new Point(58, 477);
             textBox6.Name = "textBox6";
             textBox6.Size = new Size(125, 27);
             textBox6.TabIndex = 36;
@@ -683,7 +699,7 @@ namespace MotorControl
             // 
             // textBox5
             // 
-            textBox5.Location = new Point(161, 497);
+            textBox5.Location = new Point(58, 445);
             textBox5.Name = "textBox5";
             textBox5.Size = new Size(125, 27);
             textBox5.TabIndex = 35;
@@ -692,7 +708,7 @@ namespace MotorControl
             // label21
             // 
             label21.AutoSize = true;
-            label21.Location = new Point(48, 575);
+            label21.Location = new Point(6, 517);
             label21.Name = "label21";
             label21.Size = new Size(18, 20);
             label21.TabIndex = 34;
@@ -701,7 +717,7 @@ namespace MotorControl
             // label20
             // 
             label20.AutoSize = true;
-            label20.Location = new Point(48, 532);
+            label20.Location = new Point(6, 484);
             label20.Name = "label20";
             label20.Size = new Size(18, 20);
             label20.TabIndex = 33;
@@ -710,7 +726,7 @@ namespace MotorControl
             // label19
             // 
             label19.AutoSize = true;
-            label19.Location = new Point(48, 497);
+            label19.Location = new Point(6, 452);
             label19.Name = "label19";
             label19.Size = new Size(18, 20);
             label19.TabIndex = 32;
@@ -718,7 +734,7 @@ namespace MotorControl
             // 
             // button10
             // 
-            button10.Location = new Point(310, 567);
+            button10.Location = new Point(245, 513);
             button10.Name = "button10";
             button10.Size = new Size(94, 29);
             button10.TabIndex = 28;
@@ -727,7 +743,7 @@ namespace MotorControl
             // 
             // button9
             // 
-            button9.Location = new Point(310, 532);
+            button9.Location = new Point(245, 478);
             button9.Name = "button9";
             button9.Size = new Size(94, 29);
             button9.TabIndex = 27;
@@ -736,7 +752,7 @@ namespace MotorControl
             // 
             // button8
             // 
-            button8.Location = new Point(310, 497);
+            button8.Location = new Point(245, 443);
             button8.Name = "button8";
             button8.Size = new Size(94, 29);
             button8.TabIndex = 26;
@@ -745,7 +761,7 @@ namespace MotorControl
             // 
             // buttonGcode2
             // 
-            buttonGcode2.Location = new Point(465, 868);
+            buttonGcode2.Location = new Point(445, 690);
             buttonGcode2.Name = "buttonGcode2";
             buttonGcode2.Size = new Size(94, 29);
             buttonGcode2.TabIndex = 25;
@@ -763,7 +779,7 @@ namespace MotorControl
             // 
             // textBoxGcode2
             // 
-            textBoxGcode2.Location = new Point(179, 868);
+            textBoxGcode2.Location = new Point(159, 690);
             textBoxGcode2.Name = "textBoxGcode2";
             textBoxGcode2.Size = new Size(259, 27);
             textBoxGcode2.TabIndex = 24;
@@ -780,7 +796,7 @@ namespace MotorControl
             // label8
             // 
             label8.AutoSize = true;
-            label8.Location = new Point(36, 868);
+            label8.Location = new Point(16, 690);
             label8.Name = "label8";
             label8.Size = new Size(121, 20);
             label8.TabIndex = 23;
@@ -789,22 +805,22 @@ namespace MotorControl
             // label7
             // 
             label7.AutoSize = true;
-            label7.Location = new Point(36, 823);
+            label7.Location = new Point(16, 645);
             label7.Name = "label7";
-            label7.Size = new Size(106, 20);
+            label7.Size = new Size(103, 20);
             label7.TabIndex = 22;
-            label7.Text = "图片转GCODE";
+            label7.Text = "xlsx转GCODE";
             // 
             // txtCommand
             // 
-            txtCommand.Location = new Point(66, 87);
+            txtCommand.Location = new Point(122, 87);
             txtCommand.Name = "txtCommand";
             txtCommand.Size = new Size(326, 27);
             txtCommand.TabIndex = 4;
             // 
             // buttonGcode
             // 
-            buttonGcode.Location = new Point(464, 823);
+            buttonGcode.Location = new Point(444, 645);
             buttonGcode.Name = "buttonGcode";
             buttonGcode.Size = new Size(94, 29);
             buttonGcode.TabIndex = 21;
@@ -813,15 +829,15 @@ namespace MotorControl
             // 
             // rtbLog
             // 
-            rtbLog.Location = new Point(47, 163);
+            rtbLog.Location = new Point(6, 131);
             rtbLog.Name = "rtbLog";
-            rtbLog.Size = new Size(494, 285);
+            rtbLog.Size = new Size(570, 285);
             rtbLog.TabIndex = 3;
             rtbLog.Text = "";
             // 
             // textBoxGcode
             // 
-            textBoxGcode.Location = new Point(179, 823);
+            textBoxGcode.Location = new Point(159, 645);
             textBoxGcode.Name = "textBoxGcode";
             textBoxGcode.Size = new Size(259, 27);
             textBoxGcode.TabIndex = 20;
@@ -829,7 +845,7 @@ namespace MotorControl
             // 
             // txtKlipperAddress
             // 
-            txtKlipperAddress.Location = new Point(66, 39);
+            txtKlipperAddress.Location = new Point(122, 39);
             txtKlipperAddress.Name = "txtKlipperAddress";
             txtKlipperAddress.Size = new Size(326, 27);
             txtKlipperAddress.TabIndex = 2;
@@ -837,7 +853,7 @@ namespace MotorControl
             // 
             // btnSendCommand
             // 
-            btnSendCommand.Location = new Point(428, 85);
+            btnSendCommand.Location = new Point(484, 85);
             btnSendCommand.Name = "btnSendCommand";
             btnSendCommand.Size = new Size(94, 29);
             btnSendCommand.TabIndex = 1;
@@ -846,7 +862,7 @@ namespace MotorControl
             // 
             // btnConnect
             // 
-            btnConnect.Location = new Point(428, 37);
+            btnConnect.Location = new Point(484, 37);
             btnConnect.Name = "btnConnect";
             btnConnect.Size = new Size(94, 29);
             btnConnect.TabIndex = 0;
@@ -902,7 +918,7 @@ namespace MotorControl
             groupBox1.Controls.Add(label10);
             groupBox1.Location = new Point(1078, 12);
             groupBox1.Name = "groupBox1";
-            groupBox1.Size = new Size(579, 31);
+            groupBox1.Size = new Size(579, 398);
             groupBox1.TabIndex = 21;
             groupBox1.TabStop = false;
             groupBox1.Text = "屏幕跟随测试";
@@ -975,7 +991,7 @@ namespace MotorControl
             groupBox6.Controls.Add(label13);
             groupBox6.Controls.Add(button4);
             groupBox6.Controls.Add(textBox2);
-            groupBox6.Location = new Point(1078, 54);
+            groupBox6.Location = new Point(1678, 12);
             groupBox6.Name = "groupBox6";
             groupBox6.Size = new Size(579, 385);
             groupBox6.TabIndex = 22;
@@ -1053,9 +1069,9 @@ namespace MotorControl
             groupBox7.Controls.Add(label16);
             groupBox7.Controls.Add(button6);
             groupBox7.Controls.Add(button5);
-            groupBox7.Location = new Point(1078, 464);
+            groupBox7.Location = new Point(1678, 413);
             groupBox7.Name = "groupBox7";
-            groupBox7.Size = new Size(579, 445);
+            groupBox7.Size = new Size(579, 330);
             groupBox7.TabIndex = 23;
             groupBox7.TabStop = false;
             groupBox7.Text = "磁铁位姿控制";
@@ -1136,9 +1152,79 @@ namespace MotorControl
             button5.Text = "设置";
             button5.UseVisualStyleBackColor = true;
             // 
+            // groupBox8
+            // 
+            groupBox8.Controls.Add(label28);
+            groupBox8.Controls.Add(button13);
+            groupBox8.Controls.Add(button12);
+            groupBox8.Controls.Add(label27);
+            groupBox8.Controls.Add(label26);
+            groupBox8.Controls.Add(BrightnessBar);
+            groupBox8.Location = new Point(1078, 429);
+            groupBox8.Name = "groupBox8";
+            groupBox8.Size = new Size(579, 168);
+            groupBox8.TabIndex = 24;
+            groupBox8.TabStop = false;
+            groupBox8.Text = "紫外光源亮度控制";
+            // 
+            // BrightnessBar
+            // 
+            BrightnessBar.Location = new Point(107, 38);
+            BrightnessBar.Name = "BrightnessBar";
+            BrightnessBar.Size = new Size(368, 56);
+            BrightnessBar.TabIndex = 0;
+            // 
+            // label26
+            // 
+            label26.AutoSize = true;
+            label26.Location = new Point(39, 40);
+            label26.Name = "label26";
+            label26.Size = new Size(18, 20);
+            label26.TabIndex = 1;
+            label26.Text = "0";
+            // 
+            // label27
+            // 
+            label27.AutoSize = true;
+            label27.Location = new Point(502, 40);
+            label27.Name = "label27";
+            label27.Size = new Size(36, 20);
+            label27.TabIndex = 2;
+            label27.Text = "100";
+            // 
+            // button12
+            // 
+            button12.Location = new Point(30, 102);
+            button12.Name = "button12";
+            button12.Size = new Size(94, 29);
+            button12.TabIndex = 3;
+            button12.Text = "开灯";
+            button12.UseVisualStyleBackColor = true;
+            button12.Click += button12_Click;
+            // 
+            // button13
+            // 
+            button13.Location = new Point(444, 102);
+            button13.Name = "button13";
+            button13.Size = new Size(94, 29);
+            button13.TabIndex = 4;
+            button13.Text = "关灯";
+            button13.UseVisualStyleBackColor = true;
+            button13.Click += button13_Click;
+            // 
+            // label28
+            // 
+            label28.AutoSize = true;
+            label28.Location = new Point(259, 109);
+            label28.Name = "label28";
+            label28.Size = new Size(54, 20);
+            label28.TabIndex = 5;
+            label28.Text = "灯：关";
+            // 
             // MainForm
             // 
-            ClientSize = new Size(1679, 957);
+            ClientSize = new Size(2256, 878);
+            Controls.Add(groupBox8);
             Controls.Add(groupBox7);
             Controls.Add(groupBox6);
             Controls.Add(groupBox1);
@@ -1162,6 +1248,9 @@ namespace MotorControl
             groupBox6.PerformLayout();
             groupBox7.ResumeLayout(false);
             groupBox7.PerformLayout();
+            groupBox8.ResumeLayout(false);
+            groupBox8.PerformLayout();
+            ((ISupportInitialize)BrightnessBar).EndInit();
             ResumeLayout(false);
         }
 
@@ -1299,6 +1388,16 @@ namespace MotorControl
             {
                 base.OnFormClosing(e);
             }
+        }
+
+        private void button12_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void button13_Click(object sender, EventArgs e)
+        {
+
         }
     }
 }
