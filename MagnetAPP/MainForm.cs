@@ -23,6 +23,10 @@ namespace MotorControl
         private MotorController? _motorController;
         private ArduinoCommunication? _arduinoCom;
 
+        private const string UnoComPort = "COM3";
+        private UnoDeviceClient? _unoDeviceClient;
+        private UltravioletLightUiController? _ultravioletLightUiController;
+
 
         private bool _isDisposing = false;
         private readonly object _disposeLock = new object();
@@ -191,9 +195,25 @@ namespace MotorControl
             try
             {
                 //_motorController = new MotorController("COM10");
-                // UNO/Arduino serial devices are opened by feature-specific modules.
-                // Do not claim COM ports during form startup; the GUI can create UnoDeviceClient later.
                 _arduinoCom = null;
+
+                try
+                {
+                    _unoDeviceClient = new UnoDeviceClient(UnoComPort);
+                    _unoDeviceClient.Open();
+                }
+                catch (Exception ex)
+                {
+                    _log.Warn($"Failed to open UNO serial port {UnoComPort}: {ex.Message}", ex);
+                    MessageBox.Show(
+                        $"无法打开 UNO 串口 {UnoComPort}：{ex.Message}\n紫外光源控制将不可用。",
+                        "串口警告",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                    _unoDeviceClient?.Dispose();
+                    _unoDeviceClient = null;
+                }
+
                 return true;
             }
             catch (Exception ex)
@@ -237,6 +257,12 @@ namespace MotorControl
                     textBox2, button4, richTextBox4, richTextBox5);
 
                 DisplayManager.Instance.Initialize(this);
+
+                if (_unoDeviceClient != null)
+                {
+                    _ultravioletLightUiController = new UltravioletLightUiController(
+                        this, _unoDeviceClient, BrightnessBar, button12, button13, label28);
+                }
             }
             catch (Exception ex)
             {
@@ -1200,7 +1226,6 @@ namespace MotorControl
             button12.TabIndex = 3;
             button12.Text = "开灯";
             button12.UseVisualStyleBackColor = true;
-            button12.Click += button12_Click;
             // 
             // button13
             // 
@@ -1210,7 +1235,6 @@ namespace MotorControl
             button13.TabIndex = 4;
             button13.Text = "关灯";
             button13.UseVisualStyleBackColor = true;
-            button13.Click += button13_Click;
             // 
             // label28
             // 
@@ -1340,6 +1364,14 @@ namespace MotorControl
                 _motorPositionController?.Dispose();
                 _csvSearchController?.Dispose();
                 _gcodeController?.Dispose();
+                _ultravioletLightUiController?.Dispose();
+                _ultravioletLightUiController = null;
+
+                if (_unoDeviceClient != null)
+                {
+                    _unoDeviceClient.Dispose();
+                    _unoDeviceClient = null;
+                }
 
                 // Dispose legacy controllers
                 if (_arduinoCom != null)
@@ -1390,14 +1422,5 @@ namespace MotorControl
             }
         }
 
-        private void button12_Click(object sender, EventArgs e)
-        {
-
-        }
-
-        private void button13_Click(object sender, EventArgs e)
-        {
-
-        }
     }
 }
