@@ -168,6 +168,7 @@ namespace MotorControl
             InitializeModularControllers();
             Shown += MainForm_Shown;
             comboBox2.SelectedIndexChanged += UnoPortComboBox_SelectedIndexChanged;
+            button19.Click += Button19_Click;
         }
 
         // Public methods to expose controlled access to private controls for 3DPrinter class
@@ -259,11 +260,7 @@ namespace MotorControl
             try
             {
                 await Task.Delay(PortScanDelayMilliseconds);
-                RunOnUiThread(() =>
-                {
-                    SerialPortDiscovery.RefreshComboBoxes(comboBox1, comboBox2, comboBox3);
-                    _log.Info($"Serial ports scanned: {string.Join(", ", SerialPortDiscovery.GetAvailablePorts())}");
-                });
+                this.RunOnUiThread(RefreshPortComboBoxes);
             }
             catch (Exception ex)
             {
@@ -273,6 +270,17 @@ namespace MotorControl
             {
                 _isScanningPorts = false;
             }
+        }
+
+        private void RefreshPortComboBoxes()
+        {
+            SerialPortDiscovery.RefreshComboBoxes(comboBox1, comboBox2, comboBox3);
+            _log.Info($"Serial ports refreshed: {string.Join(", ", SerialPortDiscovery.GetAvailablePorts())}");
+        }
+
+        private void Button19_Click(object? sender, EventArgs e)
+        {
+            RefreshPortComboBoxes();
         }
 
         private void UnoPortComboBox_SelectedIndexChanged(object? sender, EventArgs e)
@@ -378,7 +386,12 @@ namespace MotorControl
                 DisplayManager.Instance.Initialize(this);
 
                 _ultravioletLightUiController = new UltravioletLightUiController(
-                    this, EnsureUnoDeviceClient, BrightnessBar, button12, button13, label28);
+                    this,
+                    showErrors => EnsureUnoDeviceClient(showErrors),
+                    BrightnessBar,
+                    button12,
+                    button13,
+                    label28);
             }
             catch (Exception ex)
             {
