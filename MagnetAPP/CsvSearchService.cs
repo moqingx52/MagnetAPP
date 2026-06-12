@@ -110,6 +110,9 @@ namespace MotorControl
             out double targetY,
             out double targetZ)
         {
+            targetX = 0;
+            targetY = 0;
+            targetZ = 0;
             return TryParseCell(textX, out targetX)
                 && TryParseCell(textY, out targetY)
                 && TryParseCell(textZ, out targetZ);
