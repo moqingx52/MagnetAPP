@@ -13,7 +13,7 @@ namespace MotorControl
         private const int DefaultBrightnessPercent = 50;
 
         private readonly MainForm _mainForm;
-        private readonly UltravioletLightController _light;
+        private readonly Func<bool, UnoDeviceClient?> _getUnoDevice;
         private readonly TrackBar _brightnessBar;
         private readonly Button _turnOnButton;
         private readonly Button _turnOffButton;
@@ -25,14 +25,14 @@ namespace MotorControl
 
         public UltravioletLightUiController(
             MainForm mainForm,
-            UnoDeviceClient unoDevice,
+            Func<bool, UnoDeviceClient?> getUnoDevice,
             TrackBar brightnessBar,
             Button turnOnButton,
             Button turnOffButton,
             Label statusLabel)
         {
             _mainForm = mainForm;
-            _light = new UltravioletLightController(unoDevice);
+            _getUnoDevice = getUnoDevice;
             _brightnessBar = brightnessBar;
             _turnOnButton = turnOnButton;
             _turnOffButton = turnOffButton;
@@ -60,25 +60,27 @@ namespace MotorControl
         private async void TurnOnButton_Click(object? sender, EventArgs e)
         {
             await ExecuteLightActionAsync(
-                async () =>
+                async light =>
                 {
-                    await _light.SetBrightnessPercentAsync(_brightnessBar.Value);
+                    await light.SetBrightnessPercentAsync(_brightnessBar.Value);
                     _isLightOn = true;
                     UpdateStatusLabel(true);
                 },
-                "开灯");
+                "开灯",
+                showConnectionErrors: true);
         }
 
         private async void TurnOffButton_Click(object? sender, EventArgs e)
         {
             await ExecuteLightActionAsync(
-                async () =>
+                async light =>
                 {
-                    await _light.TurnOffAsync();
+                    await light.TurnOffAsync();
                     _isLightOn = false;
                     UpdateStatusLabel(false);
                 },
-                "关灯");
+                "关灯",
+                showConnectionErrors: true);
         }
 
         private void BrightnessBar_ValueChanged(object? sender, EventArgs e)
@@ -97,12 +99,29 @@ namespace MotorControl
             _ = DebouncedSetBrightnessAsync(brightness, token);
         }
 
+        private UltravioletLightController? TryCreateLightController(bool showConnectionErrors)
+        {
+            UnoDeviceClient? client = _getUnoDevice(showConnectionErrors);
+            if (client == null)
+            {
+                return null;
+            }
+
+            return new UltravioletLightController(client);
+        }
+
         private async Task DebouncedSetBrightnessAsync(int brightness, CancellationToken cancellationToken)
         {
             try
             {
                 await Task.Delay(SliderDebounceMilliseconds, cancellationToken);
-                await _light.SetBrightnessPercentAsync(brightness, cancellationToken);
+                UltravioletLightController? light = TryCreateLightController(showConnectionErrors: false);
+                if (light == null)
+                {
+                    return;
+                }
+
+                await light.SetBrightnessPercentAsync(brightness, cancellationToken);
             }
             catch (OperationCanceledException)
             {
@@ -115,13 +134,22 @@ namespace MotorControl
             }
         }
 
-        private async Task ExecuteLightActionAsync(Func<Task> action, string actionName)
+        private async Task ExecuteLightActionAsync(
+            Func<UltravioletLightController, Task> action,
+            string actionName,
+            bool showConnectionErrors)
         {
             _turnOnButton.Enabled = false;
             _turnOffButton.Enabled = false;
             try
             {
-                await action();
+                UltravioletLightController? light = TryCreateLightController(showConnectionErrors);
+                if (light == null)
+                {
+                    return;
+                }
+
+                await action(light);
             }
             catch (Exception ex)
             {

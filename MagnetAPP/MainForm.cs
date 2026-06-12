@@ -23,9 +23,12 @@ namespace MotorControl
         private MotorController? _motorController;
         private ArduinoCommunication? _arduinoCom;
 
-        private const string UnoComPort = "COM3";
+        private const int PortScanDelayMilliseconds = SerialPortDiscovery.DefaultStartupScanDelayMs;
+
+        // UNO R3: comboBox2 -> UnoDeviceClient -> UNOslave (MOTOR/ENABLE + UVP/UVOFF on one port)
         private UnoDeviceClient? _unoDeviceClient;
         private UltravioletLightUiController? _ultravioletLightUiController;
+        private bool _isScanningPorts;
 
 
         private bool _isDisposing = false;
@@ -151,11 +154,19 @@ namespace MotorControl
 
         public KlipperCommunicator? Klipper => _klipperController?.Klipper;
 
+        public string? MagneticFieldPort => comboBox1.SelectedItem?.ToString();
+        public string? UnoPort => comboBox2.SelectedItem?.ToString();
+        public string? Rs485Port => comboBox3.SelectedItem?.ToString();
+        public UnoDeviceClient? UnoDevice => _unoDeviceClient;
+
         public MainForm()
         {
             InitializeComponent();
+            ConfigurePortComboBoxes();
             InitializeControllers();
             InitializeModularControllers();
+            Shown += MainForm_Shown;
+            comboBox2.SelectedIndexChanged += UnoPortComboBox_SelectedIndexChanged;
         }
 
         // Public methods to expose controlled access to private controls for 3DPrinter class
@@ -214,30 +225,119 @@ namespace MotorControl
             {
                 //_motorController = new MotorController("COM10");
                 _arduinoCom = null;
-
-                try
-                {
-                    _unoDeviceClient = new UnoDeviceClient(UnoComPort);
-                    _unoDeviceClient.Open();
-                }
-                catch (Exception ex)
-                {
-                    _log.Warn($"Failed to open UNO serial port {UnoComPort}: {ex.Message}", ex);
-                    MessageBox.Show(
-                        $"无法打开 UNO 串口 {UnoComPort}：{ex.Message}\n紫外光源控制将不可用。",
-                        "串口警告",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Warning);
-                    _unoDeviceClient?.Dispose();
-                    _unoDeviceClient = null;
-                }
-
                 return true;
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"Error initializing controllers: {ex.Message}", "Error",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return false;
+            }
+        }
+
+        private void ConfigurePortComboBoxes()
+        {
+            comboBox1.DropDownStyle = ComboBoxStyle.DropDownList;
+            comboBox2.DropDownStyle = ComboBoxStyle.DropDownList;
+            comboBox3.DropDownStyle = ComboBoxStyle.DropDownList;
+        }
+
+        private async void MainForm_Shown(object? sender, EventArgs e)
+        {
+            await ScanSerialPortsAsync();
+        }
+
+        private async Task ScanSerialPortsAsync()
+        {
+            if (_isScanningPorts)
+            {
+                return;
+            }
+
+            _isScanningPorts = true;
+            try
+            {
+                await Task.Delay(PortScanDelayMilliseconds);
+                RunOnUiThread(() =>
+                {
+                    SerialPortDiscovery.RefreshComboBoxes(comboBox1, comboBox2, comboBox3);
+                    _log.Info($"Serial ports scanned: {string.Join(", ", SerialPortDiscovery.GetAvailablePorts())}");
+                });
+            }
+            catch (Exception ex)
+            {
+                _log.Warn($"Serial port scan failed: {ex.Message}", ex);
+            }
+            finally
+            {
+                _isScanningPorts = false;
+            }
+        }
+
+        private void UnoPortComboBox_SelectedIndexChanged(object? sender, EventArgs e)
+        {
+            DisconnectUnoDevice();
+        }
+
+        private void DisconnectUnoDevice()
+        {
+            if (_unoDeviceClient != null)
+            {
+                _unoDeviceClient.Dispose();
+                _unoDeviceClient = null;
+            }
+        }
+
+        private UnoDeviceClient? EnsureUnoDeviceClient(bool showErrors)
+        {
+            if (_unoDeviceClient?.IsOpen == true)
+            {
+                return _unoDeviceClient;
+            }
+
+            return TryConnectUnoDevice(showErrors) ? _unoDeviceClient : null;
+        }
+
+        private bool TryConnectUnoDevice(bool showErrors)
+        {
+            string? portName = UnoPort;
+            if (string.IsNullOrWhiteSpace(portName))
+            {
+                if (showErrors)
+                {
+                    MessageBox.Show(
+                        "请先在 UNO R3 下拉列表中选择串口。",
+                        "串口未选择",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                }
+
+                return false;
+            }
+
+            DisconnectUnoDevice();
+
+            try
+            {
+                _unoDeviceClient = new UnoDeviceClient(portName);
+                _unoDeviceClient.Open();
+                _log.Info($"UNO connected on {portName}");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _log.Warn($"Failed to open UNO serial port {portName}: {ex.Message}", ex);
+                if (showErrors)
+                {
+                    MessageBox.Show(
+                        $"无法打开 UNO 串口 {portName}：{ex.Message}",
+                        "串口错误",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                }
+
+                _unoDeviceClient?.Dispose();
+                _unoDeviceClient = null;
                 return false;
             }
         }
@@ -276,11 +376,8 @@ namespace MotorControl
 
                 DisplayManager.Instance.Initialize(this);
 
-                if (_unoDeviceClient != null)
-                {
-                    _ultravioletLightUiController = new UltravioletLightUiController(
-                        this, _unoDeviceClient, BrightnessBar, button12, button13, label28);
-                }
+                _ultravioletLightUiController = new UltravioletLightUiController(
+                    this, EnsureUnoDeviceClient, BrightnessBar, button12, button13, label28);
             }
             catch (Exception ex)
             {
@@ -1580,11 +1677,7 @@ namespace MotorControl
                 _ultravioletLightUiController?.Dispose();
                 _ultravioletLightUiController = null;
 
-                if (_unoDeviceClient != null)
-                {
-                    _unoDeviceClient.Dispose();
-                    _unoDeviceClient = null;
-                }
+                DisconnectUnoDevice();
 
                 // Dispose legacy controllers
                 if (_arduinoCom != null)
