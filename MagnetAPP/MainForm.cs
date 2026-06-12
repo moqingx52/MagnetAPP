@@ -125,6 +125,24 @@ namespace MotorControl
         private Label label26;
         private TrackBar BrightnessBar;
         private Label label28;
+        private ComboBox comboBox1;
+        private Label label29;
+        private ComboBox comboBox2;
+        private Label label30;
+        private GroupBox groupBox9;
+        private Label label33;
+        private Label label32;
+        private ComboBox comboBox3;
+        private Label label31;
+        private Button button18;
+        private Button button17;
+        private Button button16;
+        private Button button15;
+        private Button button14;
+        private Label label35;
+        private Label label34;
+        private TextBox textBox12;
+        private TextBox textBox11;
         private Label label23;
 
         // Properties for IDisplayControl interface
@@ -359,12 +377,30 @@ namespace MotorControl
             button6 = new Button();
             button5 = new Button();
             groupBox8 = new GroupBox();
-            BrightnessBar = new TrackBar();
-            label26 = new Label();
-            label27 = new Label();
-            button12 = new Button();
-            button13 = new Button();
             label28 = new Label();
+            button13 = new Button();
+            button12 = new Button();
+            label27 = new Label();
+            label26 = new Label();
+            BrightnessBar = new TrackBar();
+            label29 = new Label();
+            comboBox1 = new ComboBox();
+            comboBox2 = new ComboBox();
+            label30 = new Label();
+            groupBox9 = new GroupBox();
+            label31 = new Label();
+            comboBox3 = new ComboBox();
+            label32 = new Label();
+            label33 = new Label();
+            textBox11 = new TextBox();
+            textBox12 = new TextBox();
+            label34 = new Label();
+            label35 = new Label();
+            button14 = new Button();
+            button15 = new Button();
+            button16 = new Button();
+            button17 = new Button();
+            button18 = new Button();
             groupBox2.SuspendLayout();
             groupBox3.SuspendLayout();
             groupBox4.SuspendLayout();
@@ -374,6 +410,7 @@ namespace MotorControl
             groupBox7.SuspendLayout();
             groupBox8.SuspendLayout();
             ((ISupportInitialize)BrightnessBar).BeginInit();
+            groupBox9.SuspendLayout();
             SuspendLayout();
             // 
             // groupBox2
@@ -636,7 +673,7 @@ namespace MotorControl
             groupBox4.Controls.Add(btnConnect);
             groupBox4.Location = new Point(455, 12);
             groupBox4.Name = "groupBox4";
-            groupBox4.Size = new Size(594, 843);
+            groupBox4.Size = new Size(594, 731);
             groupBox4.TabIndex = 19;
             groupBox4.TabStop = false;
             groupBox4.Text = "klipper功能";
@@ -897,6 +934,8 @@ namespace MotorControl
             // 
             // groupBox5
             // 
+            groupBox5.Controls.Add(comboBox1);
+            groupBox5.Controls.Add(label29);
             groupBox5.Controls.Add(button2);
             groupBox5.Controls.Add(label9);
             groupBox5.Controls.Add(richTextBox1);
@@ -1095,16 +1134,16 @@ namespace MotorControl
             groupBox7.Controls.Add(label16);
             groupBox7.Controls.Add(button6);
             groupBox7.Controls.Add(button5);
-            groupBox7.Location = new Point(1678, 413);
+            groupBox7.Location = new Point(1078, 628);
             groupBox7.Name = "groupBox7";
-            groupBox7.Size = new Size(579, 330);
+            groupBox7.Size = new Size(579, 227);
             groupBox7.TabIndex = 23;
             groupBox7.TabStop = false;
             groupBox7.Text = "磁铁位姿控制";
             // 
             // button7
             // 
-            button7.Location = new Point(435, 154);
+            button7.Location = new Point(436, 92);
             button7.Name = "button7";
             button7.Size = new Size(94, 29);
             button7.TabIndex = 10;
@@ -1114,7 +1153,7 @@ namespace MotorControl
             // label18
             // 
             label18.AutoSize = true;
-            label18.Location = new Point(36, 163);
+            label18.Location = new Point(37, 101);
             label18.Name = "label18";
             label18.Size = new Size(69, 20);
             label18.TabIndex = 9;
@@ -1122,22 +1161,22 @@ namespace MotorControl
             // 
             // richTextBox6
             // 
-            richTextBox6.Location = new Point(33, 196);
+            richTextBox6.Location = new Point(34, 134);
             richTextBox6.Name = "richTextBox6";
-            richTextBox6.Size = new Size(496, 120);
+            richTextBox6.Size = new Size(496, 75);
             richTextBox6.TabIndex = 8;
             richTextBox6.Text = "";
             // 
             // textBox4
             // 
-            textBox4.Location = new Point(138, 118);
+            textBox4.Location = new Point(138, 62);
             textBox4.Name = "textBox4";
             textBox4.Size = new Size(125, 27);
             textBox4.TabIndex = 7;
             // 
             // textBox3
             // 
-            textBox3.Location = new Point(138, 52);
+            textBox3.Location = new Point(138, 29);
             textBox3.Name = "textBox3";
             textBox3.Size = new Size(125, 27);
             textBox3.TabIndex = 6;
@@ -1145,7 +1184,7 @@ namespace MotorControl
             // label17
             // 
             label17.AutoSize = true;
-            label17.Location = new Point(33, 116);
+            label17.Location = new Point(36, 65);
             label17.Name = "label17";
             label17.Size = new Size(84, 20);
             label17.TabIndex = 5;
@@ -1154,7 +1193,7 @@ namespace MotorControl
             // label16
             // 
             label16.AutoSize = true;
-            label16.Location = new Point(33, 54);
+            label16.Location = new Point(36, 32);
             label16.Name = "label16";
             label16.Size = new Size(84, 20);
             label16.TabIndex = 4;
@@ -1162,7 +1201,7 @@ namespace MotorControl
             // 
             // button6
             // 
-            button6.Location = new Point(287, 118);
+            button6.Location = new Point(287, 63);
             button6.Name = "button6";
             button6.Size = new Size(94, 29);
             button6.TabIndex = 1;
@@ -1171,7 +1210,7 @@ namespace MotorControl
             // 
             // button5
             // 
-            button5.Location = new Point(287, 52);
+            button5.Location = new Point(287, 26);
             button5.Name = "button5";
             button5.Size = new Size(94, 29);
             button5.TabIndex = 0;
@@ -1186,55 +1225,12 @@ namespace MotorControl
             groupBox8.Controls.Add(label27);
             groupBox8.Controls.Add(label26);
             groupBox8.Controls.Add(BrightnessBar);
-            groupBox8.Location = new Point(1078, 429);
+            groupBox8.Location = new Point(1078, 469);
             groupBox8.Name = "groupBox8";
-            groupBox8.Size = new Size(579, 168);
+            groupBox8.Size = new Size(579, 150);
             groupBox8.TabIndex = 24;
             groupBox8.TabStop = false;
             groupBox8.Text = "紫外光源亮度控制";
-            // 
-            // BrightnessBar
-            // 
-            BrightnessBar.Location = new Point(107, 38);
-            BrightnessBar.Name = "BrightnessBar";
-            BrightnessBar.Size = new Size(368, 56);
-            BrightnessBar.TabIndex = 0;
-            // 
-            // label26
-            // 
-            label26.AutoSize = true;
-            label26.Location = new Point(39, 40);
-            label26.Name = "label26";
-            label26.Size = new Size(18, 20);
-            label26.TabIndex = 1;
-            label26.Text = "0";
-            // 
-            // label27
-            // 
-            label27.AutoSize = true;
-            label27.Location = new Point(502, 40);
-            label27.Name = "label27";
-            label27.Size = new Size(36, 20);
-            label27.TabIndex = 2;
-            label27.Text = "100";
-            // 
-            // button12
-            // 
-            button12.Location = new Point(30, 102);
-            button12.Name = "button12";
-            button12.Size = new Size(94, 29);
-            button12.TabIndex = 3;
-            button12.Text = "开灯";
-            button12.UseVisualStyleBackColor = true;
-            // 
-            // button13
-            // 
-            button13.Location = new Point(444, 102);
-            button13.Name = "button13";
-            button13.Size = new Size(94, 29);
-            button13.TabIndex = 4;
-            button13.Text = "关灯";
-            button13.UseVisualStyleBackColor = true;
             // 
             // label28
             // 
@@ -1245,9 +1241,223 @@ namespace MotorControl
             label28.TabIndex = 5;
             label28.Text = "灯：关";
             // 
+            // button13
+            // 
+            button13.Location = new Point(444, 102);
+            button13.Name = "button13";
+            button13.Size = new Size(94, 29);
+            button13.TabIndex = 4;
+            button13.Text = "关灯";
+            button13.UseVisualStyleBackColor = true;
+            // 
+            // button12
+            // 
+            button12.Location = new Point(30, 102);
+            button12.Name = "button12";
+            button12.Size = new Size(94, 29);
+            button12.TabIndex = 3;
+            button12.Text = "开灯";
+            button12.UseVisualStyleBackColor = true;
+            // 
+            // label27
+            // 
+            label27.AutoSize = true;
+            label27.Location = new Point(502, 40);
+            label27.Name = "label27";
+            label27.Size = new Size(36, 20);
+            label27.TabIndex = 2;
+            label27.Text = "100";
+            // 
+            // label26
+            // 
+            label26.AutoSize = true;
+            label26.Location = new Point(39, 40);
+            label26.Name = "label26";
+            label26.Size = new Size(18, 20);
+            label26.TabIndex = 1;
+            label26.Text = "0";
+            // 
+            // BrightnessBar
+            // 
+            BrightnessBar.Location = new Point(107, 38);
+            BrightnessBar.Name = "BrightnessBar";
+            BrightnessBar.Size = new Size(368, 56);
+            BrightnessBar.TabIndex = 0;
+            // 
+            // label29
+            // 
+            label29.AutoSize = true;
+            label29.Location = new Point(11, 34);
+            label29.Name = "label29";
+            label29.Size = new Size(39, 20);
+            label29.TabIndex = 3;
+            label29.Text = "端口";
+            // 
+            // comboBox1
+            // 
+            comboBox1.FormattingEnabled = true;
+            comboBox1.Location = new Point(57, 31);
+            comboBox1.Name = "comboBox1";
+            comboBox1.Size = new Size(105, 28);
+            comboBox1.TabIndex = 4;
+            // 
+            // comboBox2
+            // 
+            comboBox2.FormattingEnabled = true;
+            comboBox2.Location = new Point(1216, 425);
+            comboBox2.Name = "comboBox2";
+            comboBox2.Size = new Size(151, 28);
+            comboBox2.TabIndex = 25;
+            // 
+            // label30
+            // 
+            label30.AutoSize = true;
+            label30.Location = new Point(1078, 428);
+            label30.Name = "label30";
+            label30.Size = new Size(67, 20);
+            label30.TabIndex = 26;
+            label30.Text = "UNO R3";
+            // 
+            // groupBox9
+            // 
+            groupBox9.Controls.Add(button18);
+            groupBox9.Controls.Add(button17);
+            groupBox9.Controls.Add(button16);
+            groupBox9.Controls.Add(button15);
+            groupBox9.Controls.Add(button14);
+            groupBox9.Controls.Add(label35);
+            groupBox9.Controls.Add(label34);
+            groupBox9.Controls.Add(textBox12);
+            groupBox9.Controls.Add(textBox11);
+            groupBox9.Controls.Add(label33);
+            groupBox9.Controls.Add(label32);
+            groupBox9.Controls.Add(comboBox3);
+            groupBox9.Controls.Add(label31);
+            groupBox9.Location = new Point(1678, 431);
+            groupBox9.Name = "groupBox9";
+            groupBox9.Size = new Size(566, 424);
+            groupBox9.TabIndex = 27;
+            groupBox9.TabStop = false;
+            groupBox9.Text = "磁场发生器";
+            // 
+            // label31
+            // 
+            label31.AutoSize = true;
+            label31.Location = new Point(18, 38);
+            label31.Name = "label31";
+            label31.Size = new Size(66, 20);
+            label31.TabIndex = 0;
+            label31.Text = "485端口";
+            // 
+            // comboBox3
+            // 
+            comboBox3.FormattingEnabled = true;
+            comboBox3.Location = new Point(125, 38);
+            comboBox3.Name = "comboBox3";
+            comboBox3.Size = new Size(151, 28);
+            comboBox3.TabIndex = 1;
+            // 
+            // label32
+            // 
+            label32.AutoSize = true;
+            label32.Location = new Point(22, 91);
+            label32.Name = "label32";
+            label32.Size = new Size(69, 20);
+            label32.TabIndex = 2;
+            label32.Text = "前后位置";
+            // 
+            // label33
+            // 
+            label33.AutoSize = true;
+            label33.Location = new Point(22, 147);
+            label33.Name = "label33";
+            label33.Size = new Size(99, 20);
+            label33.TabIndex = 3;
+            label33.Text = "磁铁当前转速";
+            // 
+            // textBox11
+            // 
+            textBox11.Location = new Point(218, 144);
+            textBox11.Name = "textBox11";
+            textBox11.Size = new Size(125, 27);
+            textBox11.TabIndex = 4;
+            // 
+            // textBox12
+            // 
+            textBox12.Location = new Point(218, 196);
+            textBox12.Name = "textBox12";
+            textBox12.Size = new Size(311, 27);
+            textBox12.TabIndex = 5;
+            // 
+            // label34
+            // 
+            label34.AutoSize = true;
+            label34.Location = new Point(22, 199);
+            label34.Name = "label34";
+            label34.Size = new Size(159, 20);
+            label34.TabIndex = 6;
+            label34.Text = "使用公式控制磁铁转速";
+            // 
+            // label35
+            // 
+            label35.AutoSize = true;
+            label35.Location = new Point(368, 149);
+            label35.Name = "label35";
+            label35.Size = new Size(46, 20);
+            label35.TabIndex = 7;
+            label35.Text = "rad/s";
+            // 
+            // button14
+            // 
+            button14.Location = new Point(420, 143);
+            button14.Name = "button14";
+            button14.Size = new Size(45, 29);
+            button14.TabIndex = 8;
+            button14.Text = "+";
+            button14.UseVisualStyleBackColor = true;
+            // 
+            // button15
+            // 
+            button15.Location = new Point(479, 144);
+            button15.Name = "button15";
+            button15.Size = new Size(50, 29);
+            button15.TabIndex = 9;
+            button15.Text = "-";
+            button15.UseVisualStyleBackColor = true;
+            // 
+            // button16
+            // 
+            button16.Location = new Point(127, 144);
+            button16.Name = "button16";
+            button16.Size = new Size(71, 29);
+            button16.TabIndex = 10;
+            button16.Text = "stop";
+            button16.UseVisualStyleBackColor = true;
+            // 
+            // button17
+            // 
+            button17.Location = new Point(125, 91);
+            button17.Name = "button17";
+            button17.Size = new Size(94, 29);
+            button17.TabIndex = 11;
+            button17.Text = "前进";
+            button17.UseVisualStyleBackColor = true;
+            // 
+            // button18
+            // 
+            button18.Location = new Point(237, 91);
+            button18.Name = "button18";
+            button18.Size = new Size(94, 29);
+            button18.TabIndex = 12;
+            button18.Text = "后退";
+            button18.UseVisualStyleBackColor = true;
+            // 
             // MainForm
             // 
             ClientSize = new Size(2256, 878);
+            Controls.Add(groupBox9);
+            Controls.Add(label30);
+            Controls.Add(comboBox2);
             Controls.Add(groupBox8);
             Controls.Add(groupBox7);
             Controls.Add(groupBox6);
@@ -1275,7 +1485,10 @@ namespace MotorControl
             groupBox8.ResumeLayout(false);
             groupBox8.PerformLayout();
             ((ISupportInitialize)BrightnessBar).EndInit();
+            groupBox9.ResumeLayout(false);
+            groupBox9.PerformLayout();
             ResumeLayout(false);
+            PerformLayout();
         }
 
         // IDisplayControl interface implementations
