@@ -1,0 +1,81 @@
+# Local agent and editor state
+.agents/
+.codex/
+.joycode/
+.idea/
+.vs/
+**/.idea/
+
+# Visual Studio / Rider / user-specific project files
+*.user
+*.rsuser
+*.suo
+*.userosscache
+*.sln.docstates
+*.DotSettings.user
+
+# .NET build output
+bin/
+obj/
+[Bb]uild/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+project.assets.json
+project.nuget.cache
+*.nuget.props
+*.nuget.targets
+
+# Test and coverage output
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+coverage*.json
+
+# Publish and deployment artifacts
+publish/
+*.pubxml.user
+*.publishsettings
+
+# Logs and diagnostics
+*.log
+*.tlog
+*.binlog
+*.pidb
+*.svclog
+
+# Temporary files
+*.tmp
+*.temp
+*.cache
+*.bak
+*.orig
+*.swp
+*~
+
+# OS metadata
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Arduino local build/cache output
+*.hex
+*.elf
+*.eep
+*.map
+*.lst
+*.sym
+*.d
+build/
+build-*/
+.arduino15/
