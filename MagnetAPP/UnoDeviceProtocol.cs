@@ -15,12 +15,12 @@ namespace MotorControl
     }
 
     public sealed record UnoPinMap(
-        int Motor1Step = 2,
+        int Motor1Step = 9,
         int Motor1Direction = 4,
         int Motor1Enable = 7,
-        int Motor2Step = 8,
-        int Motor2Direction = 12,
-        string Motor2Enable = "A0",
+        int Motor2Step = 10,
+        int Motor2Direction = 8,
+        string Motor2Enable = "12",
         int PwmOutput = 3)
     {
         public static UnoPinMap Default { get; } = new();
@@ -28,6 +28,9 @@ namespace MotorControl
 
     public static class UnoDeviceProtocol
     {
+        /// <summary>1.8° 步进电机 + DM556 1/8 细分 (1600 pulse/rev)。</summary>
+        public const int StepsPerRevolution = 1600;
+
         public const int DefaultBaudRate = 115200;
         public const int MinimumPwmValue = 0;
         public const int MaximumPwmValue = 255;

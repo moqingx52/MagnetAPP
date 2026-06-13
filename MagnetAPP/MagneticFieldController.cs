@@ -301,7 +301,7 @@ namespace MotorControl
                 ?? throw new InvalidOperationException("UNO 未连接。");
 
             double delta = ShortestSignedDelta(currentAngle, targetAngle);
-            int steps = (int)Math.Round(Math.Abs(delta) / 360.0 * MotorController.STEPS_PER_REVOLUTION);
+            int steps = (int)Math.Round(Math.Abs(delta) / 360.0 * UnoDeviceProtocol.StepsPerRevolution);
             if (steps > 0)
             {
                 UnoMotorDirection direction = delta >= 0

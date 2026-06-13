@@ -4,19 +4,21 @@
   Serial settings:
     115200 baud, 8 data bits, no parity, 1 stop bit, newline-terminated ASCII commands.
 
+  Requires FastAccelStepper library (gin66) via Arduino Library Manager.
+
   Pin map for Arduino UNO R3:
-    M1_STEP = D2
+    M1_STEP = D9   // Timer1 OC1A, required by FastAccelStepper on ATmega328P
     M1_DIR  = D4
     M1_EN   = D7
 
-    M2_STEP = D8
-    M2_DIR  = D12
-    M2_EN   = A0   // used as a digital output
+    M2_STEP = D10  // Timer1 OC1B, required by FastAccelStepper on ATmega328P
+    M2_DIR  = D8
+    M2_EN   = D12
 
-    PWM_OUT = D3   // D11 is also acceptable if the wiring changes.
+    PWM_OUT = D3   // UV PWM (Timer2, no conflict with STEP on D9/D10)
 
-  D3/D11 are preferred for UV PWM because D9/D10 use Timer1 PWM on UNO.
-  Leaving D9/D10 free avoids conflicts if Timer1 is later used for steadier STEP pulses.
+  Driver assumption: DM556 class, 1/8 microstepping (1600 pulse/rev) set on hardware.
+  PC software converts angles to step counts; firmware only outputs pulses.
 
   Command protocol:
     PING
@@ -42,11 +44,11 @@
       motor: 1 or 2
       direction: 0 or 1
       steps: non-negative integer
-      pulse_us: STEP high time and low time in microseconds
+      pulse_us: STEP high time and low time in microseconds (speed = 1/(2*pulse_us) steps/s)
       keep_enabled: optional 0 or 1, default 1
 
     STOP
-      Set UV PWM to 0 and disable both motors.
+      Stop motion, set UV PWM to 0 and disable both motors.
 
   Responses:
     OK ...
@@ -56,22 +58,28 @@
 #include <Arduino.h>
 #include <stdlib.h>
 #include <string.h>
+#include <FastAccelStepper.h>
 
 const uint32_t SERIAL_BAUD = 115200;
 
-const uint8_t M1_STEP_PIN = 2;
+const uint8_t M1_STEP_PIN = 9;
 const uint8_t M1_DIR_PIN = 4;
 const uint8_t M1_ENABLE_PIN = 7;
 
-const uint8_t M2_STEP_PIN = 8;
-const uint8_t M2_DIR_PIN = 12;
-const uint8_t M2_ENABLE_PIN = A0;
+const uint8_t M2_STEP_PIN = 10;
+const uint8_t M2_DIR_PIN = 8;
+const uint8_t M2_ENABLE_PIN = 12;
 
 const uint8_t UV_PWM_PIN = 3;
 
 const bool MOTOR_ENABLE_ACTIVE_LOW = true;
-const unsigned int DEFAULT_PULSE_US = 800;
+const uint16_t DIR_CHANGE_DELAY_US = 10;
+const uint32_t DEFAULT_ACCELERATION = 20000;
 const uint16_t MAX_COMMAND_LENGTH = 96;
+
+FastAccelStepperEngine engine = FastAccelStepperEngine();
+FastAccelStepper* stepper1 = NULL;
+FastAccelStepper* stepper2 = NULL;
 
 char commandBuffer[MAX_COMMAND_LENGTH];
 uint8_t commandLength = 0;
@@ -80,25 +88,51 @@ uint8_t currentUvPwm = 0;
 bool motor1Enabled = false;
 bool motor2Enabled = false;
 
+FastAccelStepper* getStepper(uint8_t motor) {
+  return motor == 1 ? stepper1 : stepper2;
+}
+
+void setUvPwm(uint8_t pwmValue);
+void setMotorEnabled(uint8_t motor, bool enabled);
+void stopAllMotion();
+void moveMotor(uint8_t motor, bool direction, uint32_t steps, unsigned int pulseUs, bool keepEnabled);
+void handleCommand(char* command);
+void handleUvRaw();
+void handleUvPercent();
+void handleEnable();
+void handleMotor();
+void printStatus();
+bool readLongArg(long& value);
+bool isValidMotor(long motor);
+bool equalsCommand(const char* left, const char* right);
+
+bool initStepper(FastAccelStepper*& stepper, uint8_t stepPin, uint8_t dirPin, uint8_t enablePin) {
+  stepper = engine.stepperConnectToPin(stepPin);
+  if (stepper == NULL) {
+    return false;
+  }
+
+  stepper->setDirectionPin(dirPin, true, DIR_CHANGE_DELAY_US);
+  stepper->setEnablePin(enablePin, MOTOR_ENABLE_ACTIVE_LOW);
+  stepper->setAutoEnable(false);
+  stepper->disableOutputs();
+  return true;
+}
+
 void setup() {
-  pinMode(M1_STEP_PIN, OUTPUT);
-  pinMode(M1_DIR_PIN, OUTPUT);
-  pinMode(M1_ENABLE_PIN, OUTPUT);
-
-  pinMode(M2_STEP_PIN, OUTPUT);
-  pinMode(M2_DIR_PIN, OUTPUT);
-  pinMode(M2_ENABLE_PIN, OUTPUT);
-
   pinMode(UV_PWM_PIN, OUTPUT);
-
-  digitalWrite(M1_STEP_PIN, LOW);
-  digitalWrite(M2_STEP_PIN, LOW);
-  setMotorEnabled(1, false);
-  setMotorEnabled(2, false);
   setUvPwm(0);
 
+  engine.init();
+  bool m1Ready = initStepper(stepper1, M1_STEP_PIN, M1_DIR_PIN, M1_ENABLE_PIN);
+  bool m2Ready = initStepper(stepper2, M2_STEP_PIN, M2_DIR_PIN, M2_ENABLE_PIN);
+
   Serial.begin(SERIAL_BAUD);
-  Serial.println(F("OK READY MagnetAPP UNOslave"));
+  if (m1Ready && m2Ready) {
+    Serial.println(F("OK READY MagnetAPP UNOslave"));
+  } else {
+    Serial.println(F("ERR STEPPER_INIT_FAILED"));
+  }
 }
 
 void loop() {
@@ -169,6 +203,7 @@ void handleCommand(char* command) {
   }
 
   if (equalsCommand(token, "STOP")) {
+    stopAllMotion();
     setUvPwm(0);
     setMotorEnabled(1, false);
     setMotorEnabled(2, false);
@@ -250,6 +285,12 @@ void handleMotor() {
     return;
   }
 
+  FastAccelStepper* stepper = getStepper((uint8_t)motor);
+  if (stepper == NULL) {
+    Serial.println(F("ERR STEPPER_NOT_READY"));
+    return;
+  }
+
   moveMotor((uint8_t)motor, direction != 0, (uint32_t)steps, (unsigned int)pulseUs, keepEnabled != 0);
   Serial.print(F("OK MOTOR "));
   Serial.print(motor);
@@ -258,22 +299,37 @@ void handleMotor() {
 }
 
 void moveMotor(uint8_t motor, bool direction, uint32_t steps, unsigned int pulseUs, bool keepEnabled) {
-  uint8_t stepPin = motor == 1 ? M1_STEP_PIN : M2_STEP_PIN;
-  uint8_t dirPin = motor == 1 ? M1_DIR_PIN : M2_DIR_PIN;
-
-  setMotorEnabled(motor, true);
-  digitalWrite(dirPin, direction ? HIGH : LOW);
-  delayMicroseconds(5);
-
-  for (uint32_t i = 0; i < steps; i++) {
-    digitalWrite(stepPin, HIGH);
-    delayMicroseconds(pulseUs);
-    digitalWrite(stepPin, LOW);
-    delayMicroseconds(pulseUs);
+  FastAccelStepper* stepper = getStepper(motor);
+  if (stepper == NULL || steps == 0) {
+    return;
   }
 
+  uint32_t minStepUs = (uint32_t)pulseUs * 2U;
+  stepper->setSpeedInUs(minStepUs);
+  stepper->setAcceleration(DEFAULT_ACCELERATION);
+  stepper->setAutoEnable(keepEnabled);
+
+  setMotorEnabled(motor, true);
+
+  int32_t signedSteps = direction ? (int32_t)steps : -(int32_t)steps;
+  stepper->move(signedSteps, true);
+
   if (!keepEnabled) {
+    stepper->setAutoEnable(false);
     setMotorEnabled(motor, false);
+  } else {
+    setMotorEnabled(motor, true);
+  }
+}
+
+void stopAllMotion() {
+  if (stepper1 != NULL) {
+    stepper1->forceStopAndNewPosition();
+    stepper1->setAutoEnable(false);
+  }
+  if (stepper2 != NULL) {
+    stepper2->forceStopAndNewPosition();
+    stepper2->setAutoEnable(false);
   }
 }
 
@@ -283,9 +339,14 @@ void setUvPwm(uint8_t pwmValue) {
 }
 
 void setMotorEnabled(uint8_t motor, bool enabled) {
-  uint8_t enablePin = motor == 1 ? M1_ENABLE_PIN : M2_ENABLE_PIN;
-  bool pinHigh = MOTOR_ENABLE_ACTIVE_LOW ? !enabled : enabled;
-  digitalWrite(enablePin, pinHigh ? HIGH : LOW);
+  FastAccelStepper* stepper = getStepper(motor);
+  if (stepper != NULL) {
+    if (enabled) {
+      stepper->enableOutputs();
+    } else {
+      stepper->disableOutputs();
+    }
+  }
 
   if (motor == 1) {
     motor1Enabled = enabled;

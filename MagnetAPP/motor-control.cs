@@ -6,7 +6,7 @@ namespace MotorControl
     public class MotorController : IDisposable
     {
         private readonly SerialCommunication _serial;
-        public const int STEPS_PER_REVOLUTION = 3200;
+        public const int STEPS_PER_REVOLUTION = 1600;
 
         public MotorController(string portName)
         {
