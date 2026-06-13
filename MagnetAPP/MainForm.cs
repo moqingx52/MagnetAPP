@@ -351,7 +351,8 @@ namespace MotorControl
             {
                 _unoDeviceClient = new UnoDeviceClient(portName);
                 _unoDeviceClient.Open();
-                _log.Info($"UNO connected on {portName}");
+                _unoDeviceClient.EnableBothMotorsAsync().GetAwaiter().GetResult();
+                _log.Info($"UNO connected on {portName}, both motors enabled");
                 return true;
             }
             catch (Exception ex)

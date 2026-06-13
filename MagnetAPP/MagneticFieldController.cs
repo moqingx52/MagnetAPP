@@ -47,8 +47,10 @@ namespace MotorControl
         private readonly CsvSearcher _csvSearcher = new();
         private double _currentYawPulse3200 = 0.0;
         private double _currentRollPulse3200 = 0.0;
-        private double _currentYawAngleDegrees = 0.0;
-        private double _currentRollAngleDegrees = 0.0;
+        private double _yawSignedDegrees = 0.0;
+        private double _rollSignedDegrees = 0.0;
+        private double _debugYawAbsoluteDegrees = 0.0;
+        private double _debugRollAbsoluteDegrees = 0.0;
         private bool _hasCommandedAngles = false;
         private MagneticSensor? _magneticSensor;
         private readonly object _sampleSync = new();
@@ -299,8 +301,10 @@ namespace MotorControl
 
             _mainForm.RunOnUiThread(() =>
             {
-                _yawAngleTextBox.Text = CsvSearcher.CsvPulseToMotorAngleDegrees(coarsePoint.YawPulse3200).ToString("F2", CultureInfo.InvariantCulture);
-                _rollAngleTextBox.Text = CsvSearcher.CsvPulseToMotorAngleDegrees(coarsePoint.RollPulse3200).ToString("F2", CultureInfo.InvariantCulture);
+                _yawAngleTextBox.Text = UnoDeviceProtocol.MapToSignedYawDegrees(
+                    CsvSearcher.CsvPulseToRawAngleDegrees(coarsePoint.YawPulse3200)).ToString("F2", CultureInfo.InvariantCulture);
+                _rollAngleTextBox.Text = CsvSearcher.CsvPulseToRawAngleDegrees(coarsePoint.RollPulse3200)
+                    .ToString("F2", CultureInfo.InvariantCulture);
             });
 
             _angleLog.AppendLineSafe(
@@ -312,34 +316,27 @@ namespace MotorControl
 
         public async Task UpdateYawAngleAsync(double yawPulse3200)
         {
-            await MoveAxisToPulseAsync(UnoMotor.Motor1, yawPulse3200, _currentYawPulse3200, value => _currentYawPulse3200 = value, "偏航");
+            double targetSigned = UnoDeviceProtocol.MapToSignedYawDegrees(
+                CsvSearcher.CsvPulseToRawAngleDegrees(yawPulse3200));
+            await MoveYawAxisAsync(targetSigned);
+            _currentYawPulse3200 = CsvSearcher.NormalizeCsvPulse(yawPulse3200);
         }
 
         public async Task UpdateRollAngleAsync(double rollPulse3200)
         {
-            await MoveAxisToPulseAsync(UnoMotor.Motor2, rollPulse3200, _currentRollPulse3200, value => _currentRollPulse3200 = value, "俯仰/滚转");
+            double targetSigned = CsvSearcher.CsvPulseToRawAngleDegrees(rollPulse3200);
+            await MoveRollAxisAsync(targetSigned);
+            _currentRollPulse3200 = CsvSearcher.NormalizeCsvPulse(rollPulse3200);
         }
 
-        private async Task UpdateYawAngleDegreesAsync(double yawAngleDegrees)
+        private async Task UpdateYawAngleDegreesAsync(double yawInputDegrees)
         {
-            await MoveAxisToAngleAsync(
-                UnoMotor.Motor1,
-                yawAngleDegrees,
-                _currentYawAngleDegrees,
-                value => _currentYawAngleDegrees = value,
-                value => _currentYawPulse3200 = value,
-                "偏航");
+            await MoveYawAxisAsync(UnoDeviceProtocol.MapToSignedYawDegrees(yawInputDegrees));
         }
 
-        private async Task UpdateRollAngleDegreesAsync(double rollAngleDegrees)
+        private async Task UpdateRollAngleDegreesAsync(double rollInputDegrees)
         {
-            await MoveAxisToAngleAsync(
-                UnoMotor.Motor2,
-                rollAngleDegrees,
-                _currentRollAngleDegrees,
-                value => _currentRollAngleDegrees = value,
-                value => _currentRollPulse3200 = value,
-                "俯仰/滚转");
+            await MoveRollAxisAsync(rollInputDegrees);
         }
 
         private async Task MoveToCsvPositionAsync(double yawPulse3200, double rollPulse3200)
@@ -348,65 +345,65 @@ namespace MotorControl
             await UpdateRollAngleAsync(rollPulse3200);
         }
 
-        private async Task MoveAxisToAngleAsync(
-            UnoMotor motor,
-            double targetAngleDegrees,
-            double currentAngleDegrees,
-            Action<double> updateCurrentAngle,
-            Action<double> updateCurrentPulse,
-            string axisName)
+        private async Task MoveYawAxisAsync(double targetSignedDegrees)
         {
             UnoDeviceClient unoDevice = _mainForm.GetOrConnectUnoDevice(true)
                 ?? throw new InvalidOperationException("UNO 未连接。");
 
-            double deltaDegrees = UnoDeviceProtocol.ShortestSignedAngleDelta(currentAngleDegrees, targetAngleDegrees);
+            double mappedTarget = UnoDeviceProtocol.MapToSignedYawDegrees(targetSignedDegrees);
+            double deltaDegrees = UnoDeviceProtocol.ShortestSignedAngleDelta(_yawSignedDegrees, mappedTarget);
             int steps = UnoDeviceProtocol.AngleDeltaDegreesToSteps(deltaDegrees);
             if (steps > 0)
             {
                 UnoMotorDirection direction = deltaDegrees >= 0
                     ? UnoMotorDirection.Forward
                     : UnoMotorDirection.Reverse;
-                await unoDevice.MoveMotorAsync(motor, direction, steps, keepEnabled: true);
-                _angleLog.AppendLineSafe($"{axisName}轴转动完成，等待 {MotorSettleDelay.TotalSeconds:F0}s");
+                await unoDevice.MoveMotorAsync(UnoMotor.Motor1, direction, steps, keepEnabled: true);
+                _angleLog.AppendLineSafe($"偏航轴转动完成，等待 {MotorSettleDelay.TotalSeconds:F0}s");
                 await Task.Delay(MotorSettleDelay);
             }
 
-            double normalizedTargetAngle = UnoDeviceProtocol.NormalizeAngleDegrees(targetAngleDegrees);
-            updateCurrentAngle(normalizedTargetAngle);
-            updateCurrentPulse(CsvSearcher.NormalizeCsvPulse(CsvSearcher.MotorAngleDegreesToCsvPulse(normalizedTargetAngle)));
+            _yawSignedDegrees = mappedTarget;
+            _debugYawAbsoluteDegrees = UnoDeviceProtocol.NormalizeAbsolute0To360(_yawSignedDegrees);
+            _currentYawPulse3200 = CsvSearcher.NormalizeCsvPulse(
+                CsvSearcher.MotorAngleDegreesToCsvPulse(_yawSignedDegrees));
             _hasCommandedAngles = true;
             _angleLog.AppendLineSafe(
-                $"{axisName}轴移动: {currentAngleDegrees:F2}° -> {normalizedTargetAngle:F2}°, delta={deltaDegrees:F2}°, motorSteps={steps}");
+                $"偏航轴移动: 输入映射目标 {mappedTarget:F2}°, delta={deltaDegrees:F2}°, motorSteps={steps}");
+            LogDebugAbsoluteAngles();
         }
 
-        private async Task MoveAxisToPulseAsync(
-            UnoMotor motor,
-            double targetPulse3200,
-            double currentPulse3200,
-            Action<double> updateCurrentPulse,
-            string axisName)
+        private async Task MoveRollAxisAsync(double targetInputDegrees)
         {
             UnoDeviceClient unoDevice = _mainForm.GetOrConnectUnoDevice(true)
                 ?? throw new InvalidOperationException("UNO 未连接。");
 
-            double delta = CsvSearcher.ShortestSignedPulseDelta(currentPulse3200, targetPulse3200);
-            int steps = CsvSearcher.CsvPulseDeltaToMotorSteps(delta);
+            double deltaDegrees = UnoDeviceProtocol.DirectSignedAngleDelta(_rollSignedDegrees, targetInputDegrees);
+            int steps = UnoDeviceProtocol.AngleDeltaDegreesToSteps(deltaDegrees);
             if (steps > 0)
             {
-                UnoMotorDirection direction = delta >= 0
+                UnoMotorDirection direction = deltaDegrees >= 0
                     ? UnoMotorDirection.Forward
                     : UnoMotorDirection.Reverse;
-                await unoDevice.MoveMotorAsync(motor, direction, steps);
-                _angleLog.AppendLineSafe($"{axisName}轴转动完成，等待 {MotorSettleDelay.TotalSeconds:F0}s");
+                await unoDevice.MoveMotorAsync(UnoMotor.Motor2, direction, steps, keepEnabled: true);
+                _angleLog.AppendLineSafe($"俯仰/滚转轴转动完成，等待 {MotorSettleDelay.TotalSeconds:F0}s");
                 await Task.Delay(MotorSettleDelay);
             }
 
-            double normalizedTarget = CsvSearcher.NormalizeCsvPulse(targetPulse3200);
-            updateCurrentPulse(normalizedTarget);
-            UpdateCurrentAngleFromCsvPulse(motor, normalizedTarget);
+            _rollSignedDegrees = targetInputDegrees;
+            _debugRollAbsoluteDegrees = UnoDeviceProtocol.NormalizeAbsolute0To360(_rollSignedDegrees);
+            _currentRollPulse3200 = CsvSearcher.NormalizeCsvPulse(
+                CsvSearcher.MotorAngleDegreesToCsvPulse(_rollSignedDegrees));
             _hasCommandedAngles = true;
             _angleLog.AppendLineSafe(
-                $"{axisName}轴移动: {currentPulse3200:F2} -> {normalizedTarget:F2} pulse3200, delta={delta:F2}, motorSteps={steps}");
+                $"俯仰/滚转轴移动: {_rollSignedDegrees - deltaDegrees:F2}° -> {_rollSignedDegrees:F2}°, delta={deltaDegrees:F2}°, motorSteps={steps}");
+            LogDebugAbsoluteAngles();
+        }
+
+        private void LogDebugAbsoluteAngles()
+        {
+            _angleLog.AppendLineSafe(
+                $"[调试] 偏航绝对角={_debugYawAbsoluteDegrees:F1}° 滚转绝对角={_debugRollAbsoluteDegrees:F1}°");
         }
 
         private async Task InitializeCurrentPositionFromSensorIfAvailableAsync()
@@ -424,11 +421,15 @@ namespace MotorControl
 
             _currentYawPulse3200 = CsvSearcher.NormalizeCsvPulse(point.YawPulse3200);
             _currentRollPulse3200 = CsvSearcher.NormalizeCsvPulse(point.RollPulse3200);
-            _currentYawAngleDegrees = CsvSearcher.CsvPulseToMotorAngleDegrees(_currentYawPulse3200);
-            _currentRollAngleDegrees = CsvSearcher.CsvPulseToMotorAngleDegrees(_currentRollPulse3200);
+            _yawSignedDegrees = UnoDeviceProtocol.MapToSignedYawDegrees(
+                CsvSearcher.CsvPulseToRawAngleDegrees(_currentYawPulse3200));
+            _rollSignedDegrees = CsvSearcher.CsvPulseToRawAngleDegrees(_currentRollPulse3200);
+            _debugYawAbsoluteDegrees = UnoDeviceProtocol.NormalizeAbsolute0To360(_yawSignedDegrees);
+            _debugRollAbsoluteDegrees = UnoDeviceProtocol.NormalizeAbsolute0To360(_rollSignedDegrees);
             _hasCommandedAngles = true;
             _angleLog.AppendLineSafe(
                 $"由当前磁场估计磁铁位置: 偏航 {_currentYawPulse3200:F2}, 俯仰/滚转 {_currentRollPulse3200:F2} pulse3200");
+            LogDebugAbsoluteAngles();
         }
 
         private async Task RunClosedLoopCorrectionAsync(double targetDirectionX, double targetDirectionY, double targetDirectionZ)
@@ -626,12 +627,12 @@ namespace MotorControl
 
         public double GetCurrentYawAngle()
         {
-            return _currentYawAngleDegrees;
+            return _yawSignedDegrees;
         }
 
         public double GetCurrentRollAngle()
         {
-            return _currentRollAngleDegrees;
+            return _rollSignedDegrees;
         }
 
         public (double X, double Y, double Z) GetCurrentMagneticField()
@@ -735,19 +736,6 @@ namespace MotorControl
         {
             return double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out angleDegrees)
                 || double.TryParse(text, out angleDegrees);
-        }
-
-        private void UpdateCurrentAngleFromCsvPulse(UnoMotor motor, double normalizedCsvPulse)
-        {
-            double angleDegrees = CsvSearcher.CsvPulseToMotorAngleDegrees(normalizedCsvPulse);
-            if (motor == UnoMotor.Motor1)
-            {
-                _currentYawAngleDegrees = angleDegrees;
-            }
-            else
-            {
-                _currentRollAngleDegrees = angleDegrees;
-            }
         }
     }
 }

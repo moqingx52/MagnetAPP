@@ -95,6 +95,12 @@ namespace MotorControl
                 MidpointRounding.AwayFromZero);
         }
 
+        /// <summary>Map any input to (-180°, 180°] for yaw axis (no slip ring).</summary>
+        public static double MapToSignedYawDegrees(double inputDegrees)
+        {
+            return NormalizeAngleDegrees(inputDegrees);
+        }
+
         public static double NormalizeAngleDegrees(double angleDegrees)
         {
             double normalized = angleDegrees % DegreesPerRevolution;
@@ -110,9 +116,27 @@ namespace MotorControl
             return normalized;
         }
 
+        /// <summary>Debug/display absolute angle in [0, 360).</summary>
+        public static double NormalizeAbsolute0To360(double signedDegrees)
+        {
+            double normalized = signedDegrees % DegreesPerRevolution;
+            if (normalized < 0)
+            {
+                normalized += DegreesPerRevolution;
+            }
+
+            return normalized;
+        }
+
         public static double ShortestSignedAngleDelta(double currentAngleDegrees, double targetAngleDegrees)
         {
             return NormalizeAngleDegrees(targetAngleDegrees - currentAngleDegrees);
+        }
+
+        /// <summary>Roll axis: direct signed delta, no shortest-path wrapping.</summary>
+        public static double DirectSignedAngleDelta(double currentAngleDegrees, double targetAngleDegrees)
+        {
+            return targetAngleDegrees - currentAngleDegrees;
         }
 
         private static int Clamp(int value, int minimum, int maximum)

@@ -113,6 +113,15 @@ namespace MotorControl
                 cancellationToken);
         }
 
+        public Task EnableBothMotorsAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.Run(async () =>
+            {
+                await SetMotorEnabledAsync(UnoMotor.Motor1, true, cancellationToken);
+                await SetMotorEnabledAsync(UnoMotor.Motor2, true, cancellationToken);
+            }, cancellationToken);
+        }
+
         public Task MoveMotorAsync(
             UnoMotor motor,
             UnoMotorDirection direction,

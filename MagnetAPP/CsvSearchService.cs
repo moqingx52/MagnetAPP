@@ -293,10 +293,15 @@ namespace MotorControl
             return angleDegrees / UnoDeviceProtocol.DegreesPerRevolution * CsvPulsePeriod;
         }
 
+        /// <summary>Raw 0~360° angle from CSV pulse3200 coordinate (no signed remapping).</summary>
+        public static double CsvPulseToRawAngleDegrees(double csvPulse)
+        {
+            return NormalizeCsvPulse(csvPulse) / CsvPulsePeriod * UnoDeviceProtocol.DegreesPerRevolution;
+        }
+
         public static double CsvPulseToMotorAngleDegrees(double csvPulse)
         {
-            double angle = NormalizeCsvPulse(csvPulse) / CsvPulsePeriod * UnoDeviceProtocol.DegreesPerRevolution;
-            return UnoDeviceProtocol.NormalizeAngleDegrees(angle);
+            return UnoDeviceProtocol.MapToSignedYawDegrees(CsvPulseToRawAngleDegrees(csvPulse));
         }
 
         public static double AngleErrorDegrees(

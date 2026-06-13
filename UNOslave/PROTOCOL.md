@@ -16,6 +16,15 @@
 
 PC 端通过 `comboBox2`（UNO R3 串口下拉框）选择端口，由 `UnoDeviceClient` 打开串口并发送命令。
 
+连接成功后 PC 会自动发送：
+
+```text
+ENABLE 1 1
+ENABLE 2 1
+```
+
+使两路电机驱动器保持使能，防止机架在重力下溜轴。每次 `MOTOR` 命令默认 `keep_enabled=1`，运动后仍保持使能。
+
 ---
 
 ## 固件依赖与硬件前提
@@ -85,6 +94,33 @@ PC 端通过 `comboBox2`（UNO R3 串口下拉框）选择端口，由 `UnoDevic
 
 ---
 
+## 偏航 / 俯仰滚转角度逻辑
+
+### 内部状态（PC 端 `MagneticFieldController`）
+
+| 变量 | 含义 | 初始值 |
+| --- | --- | --- |
+| `_yawSignedDegrees` | 偏航 signed 位置，(-180°, 180°] | 0° |
+| `_rollSignedDegrees` | 滚转 signed 位置，允许超出 ±180° | 0° |
+| `_debugYawAbsoluteDegrees` | 偏航调试绝对角 [0, 360) | 0° |
+| `_debugRollAbsoluteDegrees` | 滚转调试绝对角 [0, 360) | 0° |
+
+程序启动时四者均为 0；串口重连**不会**清零。每次运动后日志输出 `[调试] 偏航绝对角=… 滚转绝对角=…`。
+
+### 偏航轴 M1（无滑环，±180° 工作区）
+
+1. 用户输入映射到 **(-180°, 180°]**（例：270° → -90°）。
+2. 与当前 `_yawSignedDegrees` 算 **最短有符号差**，绝不绕圈超过 180°。
+3. 例：0° → 50° → -20° → 270°（映射 -90°）分别转 +50°、-70°、-140°。
+
+### 滚转轴 M2（直接差值）
+
+1. 输入允许正负，**不做** ±180 最短路径。
+2. `delta = target - current`（直接相减）。
+3. 例：50° → -20° 转 -70°；50° → 270° 转 +220°（**不**映射为 -90°）。
+
+---
+
 ## 偏航 / 俯仰滚转位置命令链路
 
 以下以 **button5（偏航角度设置）** 为例；**button6（俯仰/滚转角度设置）** 链路相同，仅电机编号与输入框不同。
@@ -93,19 +129,14 @@ PC 端通过 `comboBox2`（UNO R3 串口下拉框）选择端口，由 `UnoDevic
 button5 点击
   └─ MagneticFieldController.SetYawButton_Click()
        └─ 读取 textBox3 目标偏航角度（°，允许正负）
-            └─ UpdateYawAngleDegreesAsync(targetYawAngleDegrees)
-                 └─ MoveAxisToAngleAsync(UnoMotor.Motor1, ...)
-                      ├─ MainForm.GetOrConnectUnoDevice()  → comboBox2 所选串口
-                      ├─ 计算角度差 delta = 360° 周期内最短有符号差(current, target)
-                      ├─ 换算步数 steps = round(|deltaDegrees| × 1600 / 360)
-                      └─ UnoDeviceClient.MoveMotorAsync(Motor1, direction, steps)
-                           └─ 串口发送: MOTOR 1 <dir> <steps> 800 1
-                                └─ UNOslave.ino handleMotor()
-                                     ├─ FastAccelStepper setSpeedInUs(1600)
-                                     ├─ enableOutputs()           → EN(D7) 使能
-                                     ├─ move(±steps, blocking)    → D9 STEP 硬件脉冲
-                                     └─ 按 keep_enabled 保持或关闭使能
+            └─ MoveYawAxisAsync()
+                 ├─ MapToSignedYawDegrees(input)  → (-180, 180]
+                 ├─ delta = ShortestSignedAngleDelta(current, target)
+                 ├─ steps = round(|delta| × 1600 / 360)
+                 └─ MOTOR 1 <dir> <steps> 800 1
 ```
+
+**button6（滚转）** 走 `MoveRollAxisAsync()`：`delta = target - current`（直接差值），再发 `MOTOR 2 ...`。
 
 **button6（俯仰/滚转角度）** 对应链路：
 
@@ -113,7 +144,7 @@ button5 点击
 | --- | --- | --- |
 | 事件处理 | `SetYawButton_Click` | `SetRollButton_Click` |
 | 输入框 | `textBox3` | `textBox4` |
-| 更新方法 | `UpdateYawAngleDegreesAsync` | `UpdateRollAngleDegreesAsync` |
+| 更新方法 | `MoveYawAxisAsync` | `MoveRollAxisAsync` |
 | 电机枚举 | `UnoMotor.Motor1` | `UnoMotor.Motor2` |
 | 串口命令 | `MOTOR 1 ...` | `MOTOR 2 ...` |
 | STEP 引脚 | D9 | D10 |
@@ -122,31 +153,44 @@ button5 点击
 
 ### 手动角度步数换算
 
+**偏航（最短路径）：**
+
 ```text
-steps = round(|deltaDegrees| × StepsPerRevolution / 360)
-StepsPerRevolution = 1600
+target = MapToSignedYawDegrees(input)
+delta = ShortestSignedAngleDelta(current, target)
+steps = round(|delta| × 1600 / 360)
 ```
 
-| 角度差 | 当前电机步数 |
+**滚转（直接差值）：**
+
+```text
+delta = target - current
+steps = round(|delta| × 1600 / 360)
+```
+
+| 角度差 | 电机步数 |
 | --- | --- |
 | 45° | 200 |
 | 90° | 400 |
 | 180° | 800 |
 
-- `deltaDegrees`：当前角度与目标角度之间的最短有符号差（范围 −180° ~ +180°）。
-- `delta ≥ 0` → `direction = 1`（`UnoMotorDirection.Forward`）
-- `delta < 0` → `direction = 0`（`UnoMotorDirection.Reverse`）
+- 偏航 `delta` 范围 −180° ~ +180°（最短路径）。
+- 滚转 `delta` 为直接差值，可超过 180°（如 +220°）。
+- `delta ≥ 0` → `direction = 1`；`delta < 0` → `direction = 0`。
 - `steps = 0` 时不发送 `MOTOR` 命令。
 
 ### CSV 查表坐标换算
 
-`MagnetAPP/mag_processed.csv` 的前两列仍是旧 `pulse3200` 坐标，只在 `CsvSearchService.cs` 内使用：
+`MagnetAPP/mag_processed.csv` 的前两列仍是旧 `pulse3200` 坐标，只在 `CsvSearchService.cs` 内使用。查表后：
+
+- **偏航**：`pulse3200` → 原始角度 → `MapToSignedYawDegrees` → 偏航最短路径运动。
+- **滚转**：`pulse3200` → 原始角度 [0, 360) → 滚转直接差值运动。
 
 ```text
-steps = round(|deltaPulse3200| × 1600 / 3200)
+rawAngle = pulse3200 / 3200 × 360
+yawSteps 来自 ShortestSignedAngleDelta
+rollSteps 来自 DirectSignedAngleDelta
 ```
-
-查表结果写回 `textBox3` / `textBox4` 时会转换成角度显示；发送给 UNO 的仍是 1600 pulse/rev 下的 `steps`。
 
 ### 运动后等待
 
