@@ -324,11 +324,11 @@ void moveMotor(uint8_t motor, bool direction, uint32_t steps, unsigned int pulse
 
 void stopAllMotion() {
   if (stepper1 != NULL) {
-    stepper1->forceStopAndNewPosition();
+    stepper1->forceStopAndNewPosition(stepper1->getCurrentPosition());
     stepper1->setAutoEnable(false);
   }
   if (stepper2 != NULL) {
-    stepper2->forceStopAndNewPosition();
+    stepper2->forceStopAndNewPosition(stepper2->getCurrentPosition());
     stepper2->setAutoEnable(false);
   }
 }
