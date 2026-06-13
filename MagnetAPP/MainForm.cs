@@ -28,6 +28,8 @@ namespace MotorControl
         // UNO R3: comboBox2 -> UnoDeviceClient -> UNOslave (MOTOR/ENABLE + UVP/UVOFF on one port)
         private UnoDeviceClient? _unoDeviceClient;
         private UltravioletLightUiController? _ultravioletLightUiController;
+        private Rs485SpeedMotorClient? _rs485Client;
+        private MagneticGeneratorController? _magneticGeneratorController;
         private bool _isScanningPorts;
 
 
@@ -171,6 +173,7 @@ namespace MotorControl
             InitializeModularControllers();
             Shown += MainForm_Shown;
             comboBox2.SelectedIndexChanged += UnoPortComboBox_SelectedIndexChanged;
+            comboBox3.SelectedIndexChanged += Rs485PortComboBox_SelectedIndexChanged;
             button19.Click += Button19_Click;
         }
 
@@ -227,6 +230,11 @@ namespace MotorControl
         public UnoDeviceClient? GetOrConnectUnoDevice(bool showErrors)
         {
             return EnsureUnoDeviceClient(showErrors);
+        }
+
+        public Rs485SpeedMotorClient? GetOrConnectRs485Client(bool showErrors)
+        {
+            return EnsureRs485Client(showErrors);
         }
 
         private bool InitializeControllers()
@@ -296,6 +304,11 @@ namespace MotorControl
             DisconnectUnoDevice();
         }
 
+        private void Rs485PortComboBox_SelectedIndexChanged(object? sender, EventArgs e)
+        {
+            DisconnectRs485Client();
+        }
+
         private void DisconnectUnoDevice()
         {
             if (_unoDeviceClient != null)
@@ -359,6 +372,69 @@ namespace MotorControl
             }
         }
 
+        private void DisconnectRs485Client()
+        {
+            if (_rs485Client != null)
+            {
+                _rs485Client.Dispose();
+                _rs485Client = null;
+            }
+        }
+
+        private Rs485SpeedMotorClient? EnsureRs485Client(bool showErrors)
+        {
+            if (_rs485Client?.IsOpen == true)
+            {
+                return _rs485Client;
+            }
+
+            return TryConnectRs485Client(showErrors) ? _rs485Client : null;
+        }
+
+        private bool TryConnectRs485Client(bool showErrors)
+        {
+            string? portName = Rs485Port;
+            if (string.IsNullOrWhiteSpace(portName))
+            {
+                if (showErrors)
+                {
+                    MessageBox.Show(
+                        "请先在 485 端口下拉列表中选择串口。",
+                        "串口未选择",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                }
+
+                return false;
+            }
+
+            DisconnectRs485Client();
+
+            try
+            {
+                _rs485Client = new Rs485SpeedMotorClient(portName);
+                _rs485Client.Open();
+                _log.Info($"RS485 connected on {portName}");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _log.Warn($"Failed to open RS485 serial port {portName}: {ex.Message}", ex);
+                if (showErrors)
+                {
+                    MessageBox.Show(
+                        $"无法打开 RS485 串口 {portName}：{ex.Message}",
+                        "串口错误",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                }
+
+                _rs485Client?.Dispose();
+                _rs485Client = null;
+                return false;
+            }
+        }
+
         private void InitializeModularControllers()
         {
             try
@@ -397,6 +473,17 @@ namespace MotorControl
                     button12,
                     button13,
                     label28);
+
+                _magneticGeneratorController = new MagneticGeneratorController(
+                    this,
+                    EnsureRs485Client,
+                    button17,
+                    button18,
+                    button16,
+                    button14,
+                    button15,
+                    textBox11,
+                    textBox12);
 
                 _gcodeController = new GCodeController(
                     this, _klipperController, _magneticFieldController, _ultravioletLightUiController,
@@ -1726,7 +1813,7 @@ namespace MotorControl
 
         private void StopAllOperations()
         {
-            // Stop operations in all controllers
+            _magneticGeneratorController?.StopAll(showConnectionErrors: false);
         }
 
         private void DisposeManagedResources()
@@ -1742,8 +1829,11 @@ namespace MotorControl
                 _gcodeController?.Dispose();
                 _ultravioletLightUiController?.Dispose();
                 _ultravioletLightUiController = null;
+                _magneticGeneratorController?.Dispose();
+                _magneticGeneratorController = null;
 
                 DisconnectUnoDevice();
+                DisconnectRs485Client();
 
                 // Dispose legacy controllers
                 if (_arduinoCom != null)

@@ -21,6 +21,8 @@ namespace MotorControl
             };
         }
 
+        public bool IsOpen => _serialPort.IsOpen;
+
         public void Open()
         {
             if (!_serialPort.IsOpen)
