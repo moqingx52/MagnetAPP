@@ -140,7 +140,7 @@ namespace MotorControl
                 {
                     MagneticVoxelCommand candidate = remaining[i];
                     double travel = Distance(currentX, currentY, candidate.X, candidate.Y);
-                    double rotation = AngleDistance(currentYaw, candidate.Yaw) + AngleDistance(currentRoll, candidate.Roll);
+                    double rotation = PulseDistance(currentYaw, candidate.Yaw) + PulseDistance(currentRoll, candidate.Roll);
                     double cost = travel + RotationWeight * rotation;
                     if (cost < bestCost)
                     {
@@ -168,7 +168,7 @@ namespace MotorControl
             foreach (MagneticVoxelCommand command in commands)
             {
                 lines.Add(FormattableString.Invariant(
-                    $"G0 F{FeedRate:0} X{command.X:0.###} Y{command.Y:0.###}//[{command.Mx:0.###},{command.My:0.###},{command.Mz:0.###}]; yaw={command.Yaw:0.###}; roll={command.Roll:0.###}; row={command.Row}; col={command.Col}"));
+                    $"G0 F{FeedRate:0} X{command.X:0.###} Y{command.Y:0.###}//[{command.Mx:0.###},{command.My:0.###},{command.Mz:0.###}]; yawPulse3200={command.Yaw:0.###}; rollPulse3200={command.Roll:0.###}; row={command.Row}; col={command.Col}"));
             }
 
             File.WriteAllLines(outputPath, lines);
@@ -240,7 +240,7 @@ namespace MotorControl
         {
             if (!TryParseDouble(value, out double result))
             {
-                throw new InvalidDataException($"CSV 角度解析失败: {value}");
+                throw new InvalidDataException($"CSV pulse 解析失败: {value}");
             }
 
             return result;
@@ -258,16 +258,9 @@ namespace MotorControl
             return Math.Sqrt(dx * dx + dy * dy);
         }
 
-        private static double AngleDistance(double a, double b)
+        private static double PulseDistance(double a, double b)
         {
-            double delta = Math.Abs(NormalizeAngle(a) - NormalizeAngle(b));
-            return Math.Min(delta, 360.0 - delta);
-        }
-
-        private static double NormalizeAngle(double angle)
-        {
-            double normalized = angle % 360.0;
-            return normalized < 0 ? normalized + 360.0 : normalized;
+            return Math.Abs(CsvSearcher.ShortestSignedPulseDelta(a, b));
         }
 
         private static string FormatNumber(double value)

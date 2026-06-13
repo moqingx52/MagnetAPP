@@ -1327,7 +1327,7 @@ namespace MotorControl
             label18.Name = "label18";
             label18.Size = new Size(69, 20);
             label18.TabIndex = 9;
-            label18.Text = "磁场角度";
+            label18.Text = "磁场位置/闭环";
             // 
             // richTextBox6
             // 
@@ -1358,7 +1358,7 @@ namespace MotorControl
             label17.Name = "label17";
             label17.Size = new Size(84, 20);
             label17.TabIndex = 5;
-            label17.Text = "滚转角控制";
+            label17.Text = "俯仰/滚转位置";
             // 
             // label16
             // 
@@ -1367,7 +1367,7 @@ namespace MotorControl
             label16.Name = "label16";
             label16.Size = new Size(84, 20);
             label16.TabIndex = 4;
-            label16.Text = "偏航角控制";
+            label16.Text = "偏航位置";
             // 
             // button6
             // 

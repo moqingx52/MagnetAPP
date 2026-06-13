@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using MagneticFieldReader;
@@ -10,6 +12,12 @@ namespace MotorControl
     public sealed class MagneticFieldController : IDisposable
     {
         private static readonly TimeSpan MotorSettleDelay = TimeSpan.FromSeconds(10);
+        private const double MaxDirectionErrorDegrees = 20.0;
+        private const int MaxClosedLoopIterations = 4;
+        private const int MaximumSensorSamples = 40;
+        private const int MinimumAveragingSamples = 5;
+        private const double MinimumFieldStrength = 1e-6;
+        private const double MaxCorrectionPulse3200 = 150.0;
 
         private readonly MainForm _mainForm;
         private readonly MotorController? _motorController;
@@ -37,10 +45,12 @@ namespace MotorControl
         public bool IsAngleUpdateRunning { get; private set; }
         private bool _isReadingActive = false;
         private readonly CsvSearcher _csvSearcher = new();
-        private double _currentYawAngle = 0.0;
-        private double _currentRollAngle = 0.0;
+        private double _currentYawPulse3200 = 0.0;
+        private double _currentRollPulse3200 = 0.0;
         private bool _hasCommandedAngles = false;
         private MagneticSensor? _magneticSensor;
+        private readonly object _sampleSync = new();
+        private readonly Queue<(double X, double Y, double Z)> _recentFieldSamples = new();
 
         public MagneticFieldController(MainForm mainForm, RichTextBox richTextBox1, Button button2,
             Label labelX, Label labelY, Label labelZ, MotorController? motorController,
@@ -151,8 +161,26 @@ namespace MotorControl
             MagneticX = x;
             MagneticY = y;
             MagneticZ = z;
+            AddFieldSample(x, y, z);
 
             _mainForm.RunOnUiThread(() => UpdateMagneticFieldDisplay(x, y, z));
+        }
+
+        private void AddFieldSample(double x, double y, double z)
+        {
+            if (Math.Sqrt(x * x + y * y + z * z) <= MinimumFieldStrength)
+            {
+                return;
+            }
+
+            lock (_sampleSync)
+            {
+                _recentFieldSamples.Enqueue((x, y, z));
+                while (_recentFieldSamples.Count > MaximumSensorSamples)
+                {
+                    _recentFieldSamples.Dequeue();
+                }
+            }
         }
 
         private void UpdateMagneticFieldDisplay(double x, double y, double z)
@@ -173,44 +201,44 @@ namespace MotorControl
 
         private async void SetYawButton_Click(object? sender, EventArgs e)
         {
-            if (double.TryParse(_yawAngleTextBox.Text, out double targetYaw))
+            if (double.TryParse(_yawAngleTextBox.Text, out double targetYawPulse))
             {
                 try
                 {
-                    await UpdateYawAngleAsync(targetYaw);
-                    _angleLog.AppendLineSafe($"偏航角设置为: {targetYaw:F2}°");
+                    await UpdateYawAngleAsync(targetYawPulse);
+                    _angleLog.AppendLineSafe($"偏航位置设置为: {targetYawPulse:F2} pulse3200");
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"偏航角设置失败: {ex.Message}", "错误",
+                    MessageBox.Show($"偏航位置设置失败: {ex.Message}", "错误",
                         MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
             else
             {
-                MessageBox.Show("请输入有效的偏航角数值。", "输入错误",
+                MessageBox.Show("请输入有效的偏航位置数值。", "输入错误",
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
         private async void SetRollButton_Click(object? sender, EventArgs e)
         {
-            if (double.TryParse(_rollAngleTextBox.Text, out double targetRoll))
+            if (double.TryParse(_rollAngleTextBox.Text, out double targetRollPulse))
             {
                 try
                 {
-                    await UpdateRollAngleAsync(targetRoll);
-                    _angleLog.AppendLineSafe($"滚转角设置为: {targetRoll:F2}°");
+                    await UpdateRollAngleAsync(targetRollPulse);
+                    _angleLog.AppendLineSafe($"俯仰/滚转位置设置为: {targetRollPulse:F2} pulse3200");
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"滚转角设置失败: {ex.Message}", "错误",
+                    MessageBox.Show($"俯仰/滚转位置设置失败: {ex.Message}", "错误",
                         MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
             else
             {
-                MessageBox.Show("请输入有效的滚转角数值。", "输入错误",
+                MessageBox.Show("请输入有效的俯仰/滚转位置数值。", "输入错误",
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
@@ -242,66 +270,72 @@ namespace MotorControl
             }
         }
 
-        public void UpdateYawAngle(double yawAngle)
+        public void UpdateYawAngle(double yawPulse3200)
         {
-            _ = UpdateYawAngleAsync(yawAngle);
+            _ = UpdateYawAngleAsync(yawPulse3200);
         }
 
-        public void UpdateRollAngle(double rollAngle)
+        public void UpdateRollAngle(double rollPulse3200)
         {
-            _ = UpdateRollAngleAsync(rollAngle);
+            _ = UpdateRollAngleAsync(rollPulse3200);
         }
 
         public async Task SetAnglesForFieldVectorAsync(double targetX, double targetY, double targetZ)
         {
-            await InitializeCurrentAnglesFromSensorIfAvailableAsync();
+            if (!CsvSearcher.TryNormalize(targetX, targetY, targetZ, out double targetDirectionX, out double targetDirectionY, out double targetDirectionZ))
+            {
+                throw new InvalidOperationException($"目标磁场方向无效: [{targetX},{targetY},{targetZ}]");
+            }
 
-            SearchResultEventArgs? result = await _csvSearcher.SearchInCsvAsync(
-                FormatNumber(targetX),
-                FormatNumber(targetY),
-                FormatNumber(targetZ));
-            if (result is null)
+            await InitializeCurrentPositionFromSensorIfAvailableAsync();
+
+            MagneticFieldMapPoint? coarsePoint = await _csvSearcher.FindClosestDirectionAsync(targetX, targetY, targetZ);
+            if (coarsePoint is null)
             {
                 throw new InvalidOperationException($"CSV 中找不到磁场方向近似值: [{targetX},{targetY},{targetZ}]");
             }
 
-            double yaw = ParseAngle(result.ResultColumn1);
-            double roll = ParseAngle(result.ResultColumn2);
-
             _mainForm.RunOnUiThread(() =>
             {
-                _yawAngleTextBox.Text = yaw.ToString("F2", CultureInfo.InvariantCulture);
-                _rollAngleTextBox.Text = roll.ToString("F2", CultureInfo.InvariantCulture);
+                _yawAngleTextBox.Text = coarsePoint.YawPulse3200.ToString("F2", CultureInfo.InvariantCulture);
+                _rollAngleTextBox.Text = coarsePoint.RollPulse3200.ToString("F2", CultureInfo.InvariantCulture);
             });
 
-            await UpdateYawAngleAsync(yaw);
-            await UpdateRollAngleAsync(roll);
             _angleLog.AppendLineSafe(
-                $"目标磁场 [{targetX:F2},{targetY:F2},{targetZ:F2}] -> 偏航 {yaw:F2}°, 滚转 {roll:F2}°");
+                $"目标磁场 [{targetX:F2},{targetY:F2},{targetZ:F2}] -> 粗定位 偏航 {coarsePoint.YawPulse3200:F2}, 俯仰/滚转 {coarsePoint.RollPulse3200:F2} pulse3200");
+
+            await MoveToCsvPositionAsync(coarsePoint.YawPulse3200, coarsePoint.RollPulse3200);
+            await RunClosedLoopCorrectionAsync(targetDirectionX, targetDirectionY, targetDirectionZ);
         }
 
-        public async Task UpdateYawAngleAsync(double yawAngle)
+        public async Task UpdateYawAngleAsync(double yawPulse3200)
         {
-            await MoveAngleAxisAsync(UnoMotor.Motor1, yawAngle, _currentYawAngle, value => _currentYawAngle = value, "偏航");
+            await MoveAxisToPulseAsync(UnoMotor.Motor1, yawPulse3200, _currentYawPulse3200, value => _currentYawPulse3200 = value, "偏航");
         }
 
-        public async Task UpdateRollAngleAsync(double rollAngle)
+        public async Task UpdateRollAngleAsync(double rollPulse3200)
         {
-            await MoveAngleAxisAsync(UnoMotor.Motor2, rollAngle, _currentRollAngle, value => _currentRollAngle = value, "滚转");
+            await MoveAxisToPulseAsync(UnoMotor.Motor2, rollPulse3200, _currentRollPulse3200, value => _currentRollPulse3200 = value, "俯仰/滚转");
         }
 
-        private async Task MoveAngleAxisAsync(
+        private async Task MoveToCsvPositionAsync(double yawPulse3200, double rollPulse3200)
+        {
+            await UpdateYawAngleAsync(yawPulse3200);
+            await UpdateRollAngleAsync(rollPulse3200);
+        }
+
+        private async Task MoveAxisToPulseAsync(
             UnoMotor motor,
-            double targetAngle,
-            double currentAngle,
-            Action<double> updateCurrentAngle,
+            double targetPulse3200,
+            double currentPulse3200,
+            Action<double> updateCurrentPulse,
             string axisName)
         {
             UnoDeviceClient unoDevice = _mainForm.GetOrConnectUnoDevice(true)
                 ?? throw new InvalidOperationException("UNO 未连接。");
 
-            double delta = ShortestSignedDelta(currentAngle, targetAngle);
-            int steps = (int)Math.Round(Math.Abs(delta) / 360.0 * UnoDeviceProtocol.StepsPerRevolution);
+            double delta = CsvSearcher.ShortestSignedPulseDelta(currentPulse3200, targetPulse3200);
+            int steps = CsvSearcher.CsvPulseDeltaToMotorSteps(delta);
             if (steps > 0)
             {
                 UnoMotorDirection direction = delta >= 0
@@ -312,32 +346,167 @@ namespace MotorControl
                 await Task.Delay(MotorSettleDelay);
             }
 
-            double normalizedTarget = NormalizeAngle(targetAngle);
-            updateCurrentAngle(normalizedTarget);
+            double normalizedTarget = CsvSearcher.NormalizeCsvPulse(targetPulse3200);
+            updateCurrentPulse(normalizedTarget);
             _hasCommandedAngles = true;
-            _angleLog.AppendLineSafe($"{axisName}轴移动: {currentAngle:F2}° -> {normalizedTarget:F2}°, steps={steps}");
+            _angleLog.AppendLineSafe(
+                $"{axisName}轴移动: {currentPulse3200:F2} -> {normalizedTarget:F2} pulse3200, delta={delta:F2}, motorSteps={steps}");
         }
 
-        private async Task InitializeCurrentAnglesFromSensorIfAvailableAsync()
+        private async Task InitializeCurrentPositionFromSensorIfAvailableAsync()
         {
-            if (_hasCommandedAngles || GetMagneticFieldStrength() <= 1e-6)
+            if (_hasCommandedAngles || !TryGetBestFieldForControl(out double x, out double y, out double z, allowInstantFallback: true))
             {
                 return;
             }
 
-            SearchResultEventArgs? result = await _csvSearcher.SearchInCsvAsync(
-                FormatNumber(MagneticX),
-                FormatNumber(MagneticY),
-                FormatNumber(MagneticZ));
-            if (result is null)
+            MagneticFieldMapPoint? point = await _csvSearcher.FindClosestMeasuredVectorAsync(x, y, z);
+            if (point is null)
             {
                 return;
             }
 
-            _currentYawAngle = NormalizeAngle(ParseAngle(result.ResultColumn1));
-            _currentRollAngle = NormalizeAngle(ParseAngle(result.ResultColumn2));
+            _currentYawPulse3200 = CsvSearcher.NormalizeCsvPulse(point.YawPulse3200);
+            _currentRollPulse3200 = CsvSearcher.NormalizeCsvPulse(point.RollPulse3200);
             _hasCommandedAngles = true;
-            _angleLog.AppendLineSafe($"由当前磁场估计磁铁角度: 偏航 {_currentYawAngle:F2}°, 滚转 {_currentRollAngle:F2}°");
+            _angleLog.AppendLineSafe(
+                $"由当前磁场估计磁铁位置: 偏航 {_currentYawPulse3200:F2}, 俯仰/滚转 {_currentRollPulse3200:F2} pulse3200");
+        }
+
+        private async Task RunClosedLoopCorrectionAsync(double targetDirectionX, double targetDirectionY, double targetDirectionZ)
+        {
+            for (int iteration = 1; iteration <= MaxClosedLoopIterations; iteration++)
+            {
+                await CaptureFreshSamplesForControlAsync();
+                if (!TryGetBestFieldForControl(out double currentX, out double currentY, out double currentZ, allowInstantFallback: false))
+                {
+                    _angleLog.AppendLineSafe(
+                        $"闭环跳过: 最近有效磁场样本少于 {MinimumAveragingSamples} 个，保留查表粗定位结果。");
+                    return;
+                }
+
+                double angleError = CsvSearcher.AngleErrorDegrees(
+                    currentX,
+                    currentY,
+                    currentZ,
+                    targetDirectionX,
+                    targetDirectionY,
+                    targetDirectionZ);
+                _angleLog.AppendLineSafe(
+                    $"闭环第 {iteration} 轮: 平均磁场 [{currentX:F2},{currentY:F2},{currentZ:F2}], 方向误差 {angleError:F1}°");
+
+                if (angleError <= MaxDirectionErrorDegrees)
+                {
+                    _angleLog.AppendLineSafe($"闭环到位: 方向误差 {angleError:F1}° <= {MaxDirectionErrorDegrees:F0}°");
+                    return;
+                }
+
+                if (!CsvSearcher.TryNormalize(currentX, currentY, currentZ, out double currentDirectionX, out double currentDirectionY, out double currentDirectionZ))
+                {
+                    _angleLog.AppendLineSafe("闭环停止: 平均磁场强度过小。");
+                    return;
+                }
+
+                double targetYawPulse = _currentYawPulse3200;
+                double targetRollPulse = _currentRollPulse3200;
+                PulseCorrection? correction = await _csvSearcher.CalculateLocalCorrectionAsync(
+                    _currentYawPulse3200,
+                    _currentRollPulse3200,
+                    currentDirectionX,
+                    currentDirectionY,
+                    currentDirectionZ,
+                    targetDirectionX,
+                    targetDirectionY,
+                    targetDirectionZ);
+
+                if (correction is { } localCorrection)
+                {
+                    double yawDelta = Clamp(localCorrection.YawDeltaPulse3200, -MaxCorrectionPulse3200, MaxCorrectionPulse3200);
+                    double rollDelta = Clamp(localCorrection.RollDeltaPulse3200, -MaxCorrectionPulse3200, MaxCorrectionPulse3200);
+                    if (Math.Abs(yawDelta) >= 1.0 || Math.Abs(rollDelta) >= 1.0)
+                    {
+                        targetYawPulse = _currentYawPulse3200 + yawDelta;
+                        targetRollPulse = _currentRollPulse3200 + rollDelta;
+                        _angleLog.AppendLineSafe(
+                            $"闭环局部修正: dYaw={yawDelta:F2}, dRoll={rollDelta:F2} pulse3200");
+                    }
+                    else
+                    {
+                        correction = null;
+                    }
+                }
+
+                if (correction is null)
+                {
+                    MagneticFieldMapPoint? neighbor = await _csvSearcher.FindBestNeighborDirectionAsync(
+                        _currentYawPulse3200,
+                        _currentRollPulse3200,
+                        targetDirectionX,
+                        targetDirectionY,
+                        targetDirectionZ);
+                    if (neighbor is null)
+                    {
+                        _angleLog.AppendLineSafe("闭环停止: 局部修正与邻域搜索都不可用。");
+                        return;
+                    }
+
+                    targetYawPulse = neighbor.YawPulse3200;
+                    targetRollPulse = neighbor.RollPulse3200;
+                    _angleLog.AppendLineSafe(
+                        $"闭环邻域修正: 偏航 {targetYawPulse:F2}, 俯仰/滚转 {targetRollPulse:F2} pulse3200");
+                }
+
+                await MoveToCsvPositionAsync(targetYawPulse, targetRollPulse);
+            }
+
+            _angleLog.AppendLineSafe(
+                $"闭环达到最大迭代次数 {MaxClosedLoopIterations}，将交给最终姿态确认。");
+        }
+
+        private async Task CaptureFreshSamplesForControlAsync()
+        {
+            ClearFieldSamples();
+            await Task.Delay(TimeSpan.FromMilliseconds(1500));
+        }
+
+        private void ClearFieldSamples()
+        {
+            lock (_sampleSync)
+            {
+                _recentFieldSamples.Clear();
+            }
+        }
+
+        private bool TryGetBestFieldForControl(
+            out double x,
+            out double y,
+            out double z,
+            bool allowInstantFallback)
+        {
+            (double X, double Y, double Z)[] samples;
+            lock (_sampleSync)
+            {
+                samples = _recentFieldSamples.ToArray();
+            }
+
+            if (samples.Length >= MinimumAveragingSamples)
+            {
+                x = samples.Average(sample => sample.X);
+                y = samples.Average(sample => sample.Y);
+                z = samples.Average(sample => sample.Z);
+                return Math.Sqrt(x * x + y * y + z * z) > MinimumFieldStrength;
+            }
+
+            if (allowInstantFallback && GetMagneticFieldStrength() > MinimumFieldStrength)
+            {
+                x = MagneticX;
+                y = MagneticY;
+                z = MagneticZ;
+                return true;
+            }
+
+            x = y = z = 0;
+            return false;
         }
 
         public void StartContinuousAngleUpdate()
@@ -399,12 +568,12 @@ namespace MotorControl
 
         public double GetCurrentYawAngle()
         {
-            return _currentYawAngle;
+            return _currentYawPulse3200;
         }
 
         public double GetCurrentRollAngle()
         {
-            return _currentRollAngle;
+            return _currentRollPulse3200;
         }
 
         public (double X, double Y, double Z) GetCurrentMagneticField()
@@ -419,33 +588,36 @@ namespace MotorControl
 
         public bool ConfirmTargetFieldIfNeeded(double targetX, double targetY, double targetZ)
         {
-            const double maxDirectionErrorDegrees = 20.0;
-
-            double currentNorm = GetMagneticFieldStrength();
+            bool hasAveragedField = TryGetBestFieldForControl(
+                out double currentX,
+                out double currentY,
+                out double currentZ,
+                allowInstantFallback: true);
+            double currentNorm = Math.Sqrt(currentX * currentX + currentY * currentY + currentZ * currentZ);
             double targetNorm = Math.Sqrt(targetX * targetX + targetY * targetY + targetZ * targetZ);
             if (targetNorm <= 1e-9)
             {
                 return true;
             }
 
-            if (currentNorm <= 1e-6)
+            if (!hasAveragedField || currentNorm <= MinimumFieldStrength)
             {
                 return ConfirmContinue(
                     "当前没有有效磁场传感器读数，无法确认磁铁姿态是否到位。\n是否继续执行曝光？");
             }
 
-            double dot = (MagneticX * targetX + MagneticY * targetY + MagneticZ * targetZ) / (currentNorm * targetNorm);
+            double dot = (currentX * targetX + currentY * targetY + currentZ * targetZ) / (currentNorm * targetNorm);
             dot = Math.Min(1.0, Math.Max(-1.0, dot));
             double angleError = Math.Acos(dot) * 180.0 / Math.PI;
-            if (angleError <= maxDirectionErrorDegrees)
+            if (angleError <= MaxDirectionErrorDegrees)
             {
                 return true;
             }
 
             return ConfirmContinue(
-                $"当前磁场方向与目标方向偏差约 {angleError:F1}°，超过 {maxDirectionErrorDegrees:F0}°。\n" +
+                $"当前磁场方向与目标方向偏差约 {angleError:F1}°，超过 {MaxDirectionErrorDegrees:F0}°。\n" +
                 $"目标: [{targetX:F2}, {targetY:F2}, {targetZ:F2}]\n" +
-                $"当前: [{MagneticX:F2}, {MagneticY:F2}, {MagneticZ:F2}]\n" +
+                $"当前: [{currentX:F2}, {currentY:F2}, {currentZ:F2}]\n" +
                 "是否继续执行曝光？");
         }
 
@@ -496,41 +668,9 @@ namespace MotorControl
             _toggleAngleUpdateButton.Click -= ToggleAngleUpdateButton_Click;
         }
 
-        private static string FormatNumber(double value)
+        private static double Clamp(double value, double minimum, double maximum)
         {
-            return value.ToString("G17", CultureInfo.InvariantCulture);
-        }
-
-        private static double ParseAngle(string value)
-        {
-            if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double result)
-                || double.TryParse(value, out result))
-            {
-                return result;
-            }
-
-            throw new InvalidOperationException($"角度解析失败: {value}");
-        }
-
-        private static double NormalizeAngle(double angle)
-        {
-            double normalized = angle % 360.0;
-            return normalized < 0 ? normalized + 360.0 : normalized;
-        }
-
-        private static double ShortestSignedDelta(double currentAngle, double targetAngle)
-        {
-            double delta = NormalizeAngle(targetAngle) - NormalizeAngle(currentAngle);
-            if (delta > 180.0)
-            {
-                delta -= 360.0;
-            }
-            else if (delta < -180.0)
-            {
-                delta += 360.0;
-            }
-
-            return delta;
+            return Math.Min(Math.Max(value, minimum), maximum);
         }
     }
 }

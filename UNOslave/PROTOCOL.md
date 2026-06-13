@@ -34,7 +34,7 @@ PC 端通过 `comboBox2`（UNO R3 串口下拉框）选择端口，由 `UnoDevic
 | DM556 细分拨码 | **1/8** |
 | 脉冲/圈 | **1600** |
 
-`pulse/rev` 由驱动器硬件拨码决定，**不是** Arduino 引脚或固件常量。PC 端按 1600 换算角度→步数；若驱动器实际设为其他细分，机械转角会成比例偏差。
+`pulse/rev` 由驱动器硬件拨码决定，**不是** Arduino 引脚或固件常量。当前 PC 端运动输出按 1600 pulse/rev 执行；磁场 CSV 表仍是旧 3200 pulse/rev 坐标，PC 端会按 0.5 比例换算成当前电机步数。
 
 ### pulse_us 与固件速度映射
 
@@ -48,10 +48,10 @@ PC 端通过 `comboBox2`（UNO R3 串口下拉框）选择端口，由 `UnoDevic
 
 磁铁位姿控制区（`groupBox7`「磁铁位姿控制」）中，两个「设置」按钮分别驱动 UNO 上的两路步进电机：
 
-| 界面控件 | 功能 | 角度输入框 | 软件电机编号 | 固件 `motor` 参数 | 物理轴 |
+| 界面控件 | 功能 | 位置输入框 | 软件电机编号 | 固件 `motor` 参数 | 物理轴 |
 | --- | --- | --- | --- | --- | --- |
-| `button5` | 偏航角设置 | `textBox3` | `UnoMotor.Motor1` | `1` | 偏航（Yaw） |
-| `button6` | 滚转角设置 | `textBox4` | `UnoMotor.Motor2` | `2` | 滚转（Roll） |
+| `button5` | 偏航位置设置 | `textBox3` | `UnoMotor.Motor1` | `1` | 偏航（Yaw） |
+| `button6` | 俯仰/滚转位置设置 | `textBox4` | `UnoMotor.Motor2` | `2` | 俯仰/滚转（Pitch/Roll linkage） |
 
 > 早期版本曾通过 `MotorController` 走另一套串口二进制协议；当前代码中该路径已注释，**偏航 / 滚转实际均走 UNO 从机**。
 
@@ -59,15 +59,15 @@ PC 端通过 `comboBox2`（UNO R3 串口下拉框）选择端口，由 `UnoDevic
 
 ## 引脚映射
 
-### 偏航角步进电机（Motor 1 / M1）
+### 偏航步进电机（Motor 1 / M1）
 
 | 信号 | UNO R3 引脚 | 固件常量 | 说明 |
 | --- | --- | --- | --- |
 | **STEP** | **D9** | `M1_STEP_PIN` | Timer1 OC1A，FastAccelStepper 硬件脉冲 |
-| **DIR** | **D4** | `M1_DIR_PIN` | 方向：`0` = 反转，`1` = 正转（由 PC 端角度差符号决定） |
+| **DIR** | **D4** | `M1_DIR_PIN` | 方向：`0` = 反转，`1` = 正转（由 PC 端 pulse 差符号决定） |
 | **EN** | **D7** | `M1_ENABLE_PIN` | 驱动器使能；固件默认 **低电平有效**（`MOTOR_ENABLE_ACTIVE_LOW = true`） |
 
-### 滚转角步进电机（Motor 2 / M2）
+### 俯仰/滚转步进电机（Motor 2 / M2）
 
 | 信号 | UNO R3 引脚 | 固件常量 | 说明 |
 | --- | --- | --- | --- |
@@ -85,19 +85,19 @@ PC 端通过 `comboBox2`（UNO R3 串口下拉框）选择端口，由 `UnoDevic
 
 ---
 
-## 偏航角 / 滚转角命令链路
+## 偏航 / 俯仰滚转位置命令链路
 
-以下以 **button5（偏航角设置）** 为例；**button6（滚转角设置）** 链路相同，仅电机编号与输入框不同。
+以下以 **button5（偏航位置设置）** 为例；**button6（俯仰/滚转位置设置）** 链路相同，仅电机编号与输入框不同。
 
 ```
 button5 点击
   └─ MagneticFieldController.SetYawButton_Click()
-       └─ 读取 textBox3 目标偏航角（度）
-            └─ UpdateYawAngleAsync(targetYaw)
-                 └─ MoveAngleAxisAsync(UnoMotor.Motor1, ...)
+       └─ 读取 textBox3 目标偏航位置（旧 CSV pulse3200 坐标）
+            └─ UpdateYawAngleAsync(targetYawPulse3200)
+                 └─ MoveAxisToPulseAsync(UnoMotor.Motor1, ...)
                       ├─ MainForm.GetOrConnectUnoDevice()  → comboBox2 所选串口
-                      ├─ 计算角度差 delta = 最短有符号角差(current, target)
-                      ├─ 换算步数 steps = round(|delta| / 360 × 1600)
+                      ├─ 计算 pulse 差 delta = 3200 周期内最短有符号差(current, target)
+                      ├─ 换算步数 steps = round(|delta| × 1600 / 3200)
                       └─ UnoDeviceClient.MoveMotorAsync(Motor1, direction, steps)
                            └─ 串口发送: MOTOR 1 <dir> <steps> 800 1
                                 └─ UNOslave.ino handleMotor()
@@ -107,9 +107,9 @@ button5 点击
                                      └─ 按 keep_enabled 保持或关闭使能
 ```
 
-**button6（滚转角）** 对应链路：
+**button6（俯仰/滚转位置）** 对应链路：
 
-| 步骤 | 偏航 (button5) | 滚转 (button6) |
+| 步骤 | 偏航 (button5) | 俯仰/滚转 (button6) |
 | --- | --- | --- |
 | 事件处理 | `SetYawButton_Click` | `SetRollButton_Click` |
 | 输入框 | `textBox3` | `textBox4` |
@@ -123,17 +123,18 @@ button5 点击
 ### 步数换算
 
 ```text
-steps = round(|delta| / 360 × StepsPerRevolution)
-StepsPerRevolution = 1600   // 定义于 UnoDeviceProtocol.StepsPerRevolution
+steps = round(|deltaPulse3200| × StepsPerRevolution / CsvPulsePeriod)
+CsvPulsePeriod = 3200
+StepsPerRevolution = 1600
 ```
 
-| 角度 | 步数 |
+| CSV pulse3200 差值 | 当前电机步数 |
 | --- | --- |
-| 90° | 400 |
-| 45° | 200 |
-| 180° | 800 |
+| 100 | 50 |
+| 400 | 200 |
+| 1600 | 800 |
 
-- `delta`：当前角与目标角之间的最短有符号角差（范围 −180° ~ +180°）。
+- `deltaPulse3200`：当前 CSV 表坐标与目标表坐标之间的最短有符号差（范围 −1600 ~ +1600）。
 - `delta ≥ 0` → `direction = 1`（`UnoMotorDirection.Forward`）
 - `delta < 0` → `direction = 0`（`UnoMotorDirection.Reverse`）
 - `steps = 0` 时不发送 `MOTOR` 命令。
