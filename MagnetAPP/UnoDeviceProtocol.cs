@@ -30,6 +30,7 @@ namespace MotorControl
     {
         /// <summary>1.8° 步进电机 + DM556 1/8 细分 (1600 pulse/rev)。</summary>
         public const int StepsPerRevolution = 1600;
+        public const double DegreesPerRevolution = 360.0;
 
         public const int DefaultBaudRate = 115200;
         public const int MinimumPwmValue = 0;
@@ -85,6 +86,33 @@ namespace MotorControl
         {
             percent = Clamp(percent, MinimumBrightnessPercent, MaximumBrightnessPercent);
             return (int)Math.Round(percent / 100.0 * MaximumPwmValue, MidpointRounding.AwayFromZero);
+        }
+
+        public static int AngleDeltaDegreesToSteps(double angleDeltaDegrees)
+        {
+            return (int)Math.Round(
+                Math.Abs(angleDeltaDegrees) * StepsPerRevolution / DegreesPerRevolution,
+                MidpointRounding.AwayFromZero);
+        }
+
+        public static double NormalizeAngleDegrees(double angleDegrees)
+        {
+            double normalized = angleDegrees % DegreesPerRevolution;
+            if (normalized > DegreesPerRevolution / 2.0)
+            {
+                normalized -= DegreesPerRevolution;
+            }
+            else if (normalized < -DegreesPerRevolution / 2.0)
+            {
+                normalized += DegreesPerRevolution;
+            }
+
+            return normalized;
+        }
+
+        public static double ShortestSignedAngleDelta(double currentAngleDegrees, double targetAngleDegrees)
+        {
+            return NormalizeAngleDegrees(targetAngleDegrees - currentAngleDegrees);
         }
 
         private static int Clamp(int value, int minimum, int maximum)

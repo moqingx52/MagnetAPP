@@ -1443,9 +1443,9 @@ namespace MotorControl
             label17.AutoSize = true;
             label17.Location = new Point(36, 65);
             label17.Name = "label17";
-            label17.Size = new Size(84, 20);
+            label17.Size = new Size(120, 20);
             label17.TabIndex = 5;
-            label17.Text = "俯仰/滚转位置";
+            label17.Text = "俯仰/滚转角度°";
             // 
             // label16
             // 
@@ -1454,7 +1454,7 @@ namespace MotorControl
             label16.Name = "label16";
             label16.Size = new Size(84, 20);
             label16.TabIndex = 4;
-            label16.Text = "偏航位置";
+            label16.Text = "偏航角度°";
             // 
             // button6
             // 

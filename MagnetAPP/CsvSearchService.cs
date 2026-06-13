@@ -43,6 +43,8 @@ namespace MotorControl
 
     public sealed class CsvSearcher
     {
+        // mag_processed.csv was generated in the legacy 3200 pulse/rev coordinate system.
+        // Runtime UNO motor output is always converted to UnoDeviceProtocol.StepsPerRevolution (1600 pulse/rev).
         public const double CsvPulsePeriod = 3200.0;
         public const double CsvToMotorPulseScale = UnoDeviceProtocol.StepsPerRevolution / CsvPulsePeriod;
 
@@ -284,6 +286,17 @@ namespace MotorControl
         public static int CsvPulseDeltaToMotorSteps(double csvPulseDelta)
         {
             return (int)Math.Round(Math.Abs(csvPulseDelta) * CsvToMotorPulseScale);
+        }
+
+        public static double MotorAngleDegreesToCsvPulse(double angleDegrees)
+        {
+            return angleDegrees / UnoDeviceProtocol.DegreesPerRevolution * CsvPulsePeriod;
+        }
+
+        public static double CsvPulseToMotorAngleDegrees(double csvPulse)
+        {
+            double angle = NormalizeCsvPulse(csvPulse) / CsvPulsePeriod * UnoDeviceProtocol.DegreesPerRevolution;
+            return UnoDeviceProtocol.NormalizeAngleDegrees(angle);
         }
 
         public static double AngleErrorDegrees(

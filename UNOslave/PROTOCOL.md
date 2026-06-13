@@ -34,7 +34,7 @@ PC 端通过 `comboBox2`（UNO R3 串口下拉框）选择端口，由 `UnoDevic
 | DM556 细分拨码 | **1/8** |
 | 脉冲/圈 | **1600** |
 
-`pulse/rev` 由驱动器硬件拨码决定，**不是** Arduino 引脚或固件常量。当前 PC 端运动输出按 1600 pulse/rev 执行；磁场 CSV 表仍是旧 3200 pulse/rev 坐标，PC 端会按 0.5 比例换算成当前电机步数。
+`pulse/rev` 由驱动器硬件拨码决定，**不是** Arduino 引脚或固件常量。当前 PC 端运动输出统一按 **1600 pulse/rev** 执行；`3200 pulse/rev` 只用于 `MagnetAPP/mag_processed.csv` 的旧坐标，CSV 查表模块会按 0.5 比例换算成当前电机步数。
 
 ### pulse_us 与固件速度映射
 
@@ -50,8 +50,8 @@ PC 端通过 `comboBox2`（UNO R3 串口下拉框）选择端口，由 `UnoDevic
 
 | 界面控件 | 功能 | 位置输入框 | 软件电机编号 | 固件 `motor` 参数 | 物理轴 |
 | --- | --- | --- | --- | --- | --- |
-| `button5` | 偏航位置设置 | `textBox3` | `UnoMotor.Motor1` | `1` | 偏航（Yaw） |
-| `button6` | 俯仰/滚转位置设置 | `textBox4` | `UnoMotor.Motor2` | `2` | 俯仰/滚转（Pitch/Roll linkage） |
+| `button5` | 偏航角度设置 | `textBox3` | `UnoMotor.Motor1` | `1` | 偏航（Yaw） |
+| `button6` | 俯仰/滚转角度设置 | `textBox4` | `UnoMotor.Motor2` | `2` | 俯仰/滚转（Pitch/Roll linkage） |
 
 > 早期版本曾通过 `MotorController` 走另一套串口二进制协议；当前代码中该路径已注释，**偏航 / 滚转实际均走 UNO 从机**。
 
@@ -87,17 +87,17 @@ PC 端通过 `comboBox2`（UNO R3 串口下拉框）选择端口，由 `UnoDevic
 
 ## 偏航 / 俯仰滚转位置命令链路
 
-以下以 **button5（偏航位置设置）** 为例；**button6（俯仰/滚转位置设置）** 链路相同，仅电机编号与输入框不同。
+以下以 **button5（偏航角度设置）** 为例；**button6（俯仰/滚转角度设置）** 链路相同，仅电机编号与输入框不同。
 
 ```
 button5 点击
   └─ MagneticFieldController.SetYawButton_Click()
-       └─ 读取 textBox3 目标偏航位置（旧 CSV pulse3200 坐标）
-            └─ UpdateYawAngleAsync(targetYawPulse3200)
-                 └─ MoveAxisToPulseAsync(UnoMotor.Motor1, ...)
+       └─ 读取 textBox3 目标偏航角度（°，允许正负）
+            └─ UpdateYawAngleDegreesAsync(targetYawAngleDegrees)
+                 └─ MoveAxisToAngleAsync(UnoMotor.Motor1, ...)
                       ├─ MainForm.GetOrConnectUnoDevice()  → comboBox2 所选串口
-                      ├─ 计算 pulse 差 delta = 3200 周期内最短有符号差(current, target)
-                      ├─ 换算步数 steps = round(|delta| × 1600 / 3200)
+                      ├─ 计算角度差 delta = 360° 周期内最短有符号差(current, target)
+                      ├─ 换算步数 steps = round(|deltaDegrees| × 1600 / 360)
                       └─ UnoDeviceClient.MoveMotorAsync(Motor1, direction, steps)
                            └─ 串口发送: MOTOR 1 <dir> <steps> 800 1
                                 └─ UNOslave.ino handleMotor()
@@ -107,37 +107,46 @@ button5 点击
                                      └─ 按 keep_enabled 保持或关闭使能
 ```
 
-**button6（俯仰/滚转位置）** 对应链路：
+**button6（俯仰/滚转角度）** 对应链路：
 
 | 步骤 | 偏航 (button5) | 俯仰/滚转 (button6) |
 | --- | --- | --- |
 | 事件处理 | `SetYawButton_Click` | `SetRollButton_Click` |
 | 输入框 | `textBox3` | `textBox4` |
-| 更新方法 | `UpdateYawAngleAsync` | `UpdateRollAngleAsync` |
+| 更新方法 | `UpdateYawAngleDegreesAsync` | `UpdateRollAngleDegreesAsync` |
 | 电机枚举 | `UnoMotor.Motor1` | `UnoMotor.Motor2` |
 | 串口命令 | `MOTOR 1 ...` | `MOTOR 2 ...` |
 | STEP 引脚 | D9 | D10 |
 | DIR 引脚 | D4 | D8 |
 | EN 引脚 | D7 | D12 |
 
-### 步数换算
+### 手动角度步数换算
 
 ```text
-steps = round(|deltaPulse3200| × StepsPerRevolution / CsvPulsePeriod)
-CsvPulsePeriod = 3200
+steps = round(|deltaDegrees| × StepsPerRevolution / 360)
 StepsPerRevolution = 1600
 ```
 
-| CSV pulse3200 差值 | 当前电机步数 |
+| 角度差 | 当前电机步数 |
 | --- | --- |
-| 100 | 50 |
-| 400 | 200 |
-| 1600 | 800 |
+| 45° | 200 |
+| 90° | 400 |
+| 180° | 800 |
 
-- `deltaPulse3200`：当前 CSV 表坐标与目标表坐标之间的最短有符号差（范围 −1600 ~ +1600）。
+- `deltaDegrees`：当前角度与目标角度之间的最短有符号差（范围 −180° ~ +180°）。
 - `delta ≥ 0` → `direction = 1`（`UnoMotorDirection.Forward`）
 - `delta < 0` → `direction = 0`（`UnoMotorDirection.Reverse`）
 - `steps = 0` 时不发送 `MOTOR` 命令。
+
+### CSV 查表坐标换算
+
+`MagnetAPP/mag_processed.csv` 的前两列仍是旧 `pulse3200` 坐标，只在 `CsvSearchService.cs` 内使用：
+
+```text
+steps = round(|deltaPulse3200| × 1600 / 3200)
+```
+
+查表结果写回 `textBox3` / `textBox4` 时会转换成角度显示；发送给 UNO 的仍是 1600 pulse/rev 下的 `steps`。
 
 ### 运动后等待
 
@@ -145,9 +154,9 @@ StepsPerRevolution = 1600
 
 ### 其他触发路径
 
-除手动点击 button5 / button6 外，以下逻辑也会调用相同的 `UpdateYawAngleAsync` / `UpdateRollAngleAsync`：
+除手动点击 button5 / button6 外，以下逻辑也会驱动同一组 UNO 电机：
 
-- CSV 磁场查表后自动设置角度（`SetAnglesForFieldVectorAsync`）
+- CSV 磁场查表后自动设置角度（`SetAnglesForFieldVectorAsync`，内部先使用 `pulse3200` 查表坐标再换算）
 - GCode 执行流程中根据磁场向量注释驱动磁铁（`GCodeController` → `MagneticFieldController`）
 
 这些路径最终发出的 UNO 串口命令格式与按钮触发完全一致。
